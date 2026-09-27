@@ -1,0 +1,31 @@
+name: Build SecureWindowApp
+
+# Laeuft automatisch bei jedem Push auf "main" und laesst sich
+# zusaetzlich manuell ueber den "Actions"-Tab auf GitHub starten.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # WPF kann nur auf Windows gebaut werden - deshalb windows-latest.
+    runs-on: windows-latest
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: .NET 8 SDK einrichten
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Self-contained Single-File EXE erstellen (win-x64)
+        run: dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish
+
+      - name: Fertige EXE als Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: SecureWindowApp-win-x64
+          path: publish/SecureWindowApp.exe

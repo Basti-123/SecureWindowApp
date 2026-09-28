@@ -1,0 +1,75 @@
+name: Build SecureWindowApp
+
+# Laeuft automatisch bei jedem Push auf "main" und laesst sich
+# zusaetzlich manuell ueber den "Actions"-Tab auf GitHub starten.
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # WPF kann nur auf Windows gebaut werden - deshalb windows-latest.
+    runs-on: windows-latest
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: .NET 8 SDK einrichten
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Self-contained Single-File EXE erstellen (win-x64)
+        run: dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish
+
+      - name: EXE optional mit Windows-Zertifikat signieren
+        if: ${{ vars.ENABLE_CODE_SIGNING == 'true' }}
+        shell: pwsh
+        env:
+          WINDOWS_SIGNING_CERT_BASE64: ${{ secrets.WINDOWS_SIGNING_CERT_BASE64 }}
+          WINDOWS_SIGNING_CERT_PASSWORD: ${{ secrets.WINDOWS_SIGNING_CERT_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_BASE64) -or [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_PASSWORD)) {
+            throw "Code-Signing ist aktiviert, aber Zertifikat oder Passwort fehlen."
+          }
+          $certificatePath = Join-Path $env:RUNNER_TEMP "SecureWindowApp-signing.pfx"
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Sort-Object FullName -Descending |
+            Select-Object -First 1
+          if ($null -eq $signtool) {
+            throw "signtool.exe wurde im Windows SDK nicht gefunden."
+          }
+          & $signtool.FullName sign /fd SHA256 /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "${{ github.workspace }}\publish\SecureWindowApp.exe"
+          if ($LASTEXITCODE -ne 0) {
+            throw "Das Signieren der EXE ist fehlgeschlagen."
+          }
+          Remove-Item -LiteralPath $certificatePath -Force
+
+      - name: WebView2-Starter und Runtime-Bootstrapper zum Paket hinzufügen
+        shell: pwsh
+        run: |
+          Copy-Item "${{ github.workspace }}\Start-SecureWindowApp.bat" "${{ github.workspace }}\publish\Start-SecureWindowApp.bat" -Force
+          Copy-Item "${{ github.workspace }}\MicrosoftEdgeWebView2Setup.exe" "${{ github.workspace }}\publish\MicrosoftEdgeWebView2Setup.exe" -Force
+          Copy-Item "${{ github.workspace }}\SETUP.txt" "${{ github.workspace }}\publish\SETUP.txt" -Force
+          Compress-Archive -Path "${{ github.workspace }}\publish\*" -DestinationPath "${{ github.workspace }}\SecureWindowApp-win-x64.zip" -Force
+
+      - name: Windows Smoke-Test (Schutz und WebView2-Initialisierung)
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath "${{ github.workspace }}\publish\SecureWindowApp.exe" -ArgumentList "--smoke-test" -PassThru
+          if (-not $process.WaitForExit(30000)) {
+            Stop-Process -Id $process.Id -Force
+            throw "Smoke-Test hat nach 30 Sekunden nicht beendet."
+          }
+          if ($process.ExitCode -ne 0) {
+            throw "Smoke-Test fehlgeschlagen (Exit-Code $($process.ExitCode))."
+          }
+
+      - name: Fertige EXE als Download bereitstellen
+        uses: actions/upload-artifact@v4
+        with:
+          name: SecureWindowApp-win-x64
+          path: SecureWindowApp-win-x64.zip

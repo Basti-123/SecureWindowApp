@@ -1,0 +1,208 @@
+========================================================
+ SecureWindowApp - Setup-Anleitung
+========================================================
+
+WAS IST DAS?
+------------
+Eine WPF-Anwendung, die ihre Fenster per Windows-API
+(SetWindowDisplayAffinity / WDA_EXCLUDEFROMCAPTURE) vor
+Screenshots, Aufnahme-Software und Browser-/Konferenz-
+Screensharing schuetzt. Der Schutz gilt automatisch fuer
+ALLE Fenster der App und ist beim Start immer aktiv. Eine
+Aenderung ist ausschliesslich in den Einstellungen moeglich.
+
+DATEIEN IN DIESEM PAKET
+------------------------
+SecureWindowApp.csproj   Projektdatei (net8.0-windows, WPF,
+                         self-contained, single-file)
+App.xaml / App.xaml.cs   Anwendungsstart, registriert den
+                         globalen Fenster-Handler
+  MainWindow.xaml          Oberflaeche des Hauptfensters
+  MainWindow.xaml.cs       Logik des Hauptfensters, Tabs und Einstellungen
+CaptureProtection.cs     Zentrale Schutzlogik (P/Invoke)
+TrayIconManager.cs       Tray-Symbol (Infobereich) mit Menue
+  build.bat                Baut die fertige, portable .exe
+  Start-SecureWindowApp.bat Prueft WebView2, installiert es bei Bedarf
+                         fuer den aktuellen Benutzer und startet die App
+  MicrosoftEdgeWebView2Setup.exe
+                         Offizieller Microsoft-WebView2-Bootstrapper
+.github/workflows/       GitHub-Actions-Workflow, baut die App
+  build.yml              automatisch in der Cloud (kein eigener
+                         Windows-Rechner noetig, siehe unten)
+SETUP.txt                Diese Datei
+
+
+VORAUSSETZUNGEN ZUM BAUEN
+--------------------------
+WICHTIG: Die fertige WPF-Anwendung laeuft nur auf Windows.
+Das Projekt kann mit aktiviertem Windows-Targeting auch auf
+Mac/Linux cross-kompiliert werden; fuer die eigentliche App-
+Ausfuehrung wird weiterhin Windows benoetigt. Du hast zwei Wege:
+
+OPTION A - Eigener Windows-Rechner
+  Auf dem Rechner, auf dem du die App BAUST (nicht auf dem
+  Zielrechner!), wird benoetigt:
+
+    - .NET 8 SDK
+      Download: https://dotnet.microsoft.com/download/dotnet/8.0
+      Pruefen, ob es schon installiert ist:
+          dotnet --version
+      (sollte eine 8.x-Versionsnummer anzeigen)
+
+  Dann weiter mit "EINMALIGES SETUP" unten.
+
+OPTION B - Kein Windows-Rechner vorhanden (z. B. Mac/Linux)
+  Nutze den mitgelieferten GitHub-Actions-Workflow
+  (.github/workflows/build.yml). Er baut die App automatisch
+  auf einem von GitHub bereitgestellten Windows-Rechner:
+
+    1. Ein (kostenloses) GitHub-Konto anlegen, falls noch
+       nicht vorhanden: https://github.com/signup
+
+    2. Ein neues, leeres Repository auf GitHub erstellen
+       (z. B. "SecureWindowApp"), OHNE README/Lizenz.
+
+    3. Diesen Projektordner dort hochladen, z. B. per Terminal:
+
+           cd SecureWindowApp
+           git init
+           git add .
+           git commit -m "Initial commit"
+           git branch -M main
+           git remote add origin https://github.com/DEIN-NUTZERNAME/SecureWindowApp.git
+           git push -u origin main
+
+    4. Auf GitHub in den Tab "Actions" wechseln. Der Workflow
+       "Build SecureWindowApp" startet automatisch nach dem
+       Push (dauert meist 1-3 Minuten).
+
+    5. Nach erfolgreichem Lauf auf den Workflow-Lauf klicken,
+       ganz unten erscheint unter "Artifacts" der Download
+       "SecureWindowApp-win-x64" - das ist ein ZIP mit der
+       fertigen SecureWindowApp.exe.
+
+  Hinweis: Willst du spaeter etwas am Code aendern, reicht ein
+  erneuter "git push" - der Workflow baut dann automatisch neu.
+
+
+Der ZIELRECHNER, auf dem die fertige .exe spaeter laeuft,
+braucht in BEIDEN Faellen kein .NET und normalerweise keine
+Adminrechte. Das ist der Sinn der "self-contained
+single-file"-Konfiguration. Die WebView2 Runtime muss auf
+dem Zielrechner vorhanden sein. Viele Windows-Systeme haben
+sie bereits installiert; ansonsten kann der mitgelieferte
+Starter die Runtime fuer den aktuellen Benutzer nachinstallieren.
+
+
+EINMALIGES SETUP (OPTION A, lokaler Windows-Rechner)
+------------------------------------------------------
+1. Diesen Ordner (SecureWindowApp) irgendwohin entpacken,
+   z. B. nach C:\Projekte\SecureWindowApp
+
+2. Sicherstellen, dass das .NET 8 SDK installiert ist
+   (siehe oben).
+
+3. Im Ordner die Datei "build.bat" per Doppelklick starten
+   ODER in einer Eingabeaufforderung/PowerShell in diesem
+   Ordner ausfuehren:
+
+        build.bat
+
+4. Das Skript fuehrt im Hintergrund aus:
+
+        dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish
+
+5. Nach erfolgreichem Build liegt die fertige, portable
+   Anwendung hier:
+
+        publish\SecureWindowApp.exe
+
+   Diese eine Datei kannst du auf einen beliebigen
+   Windows-x64-Rechner kopieren und dort per Doppelklick
+   starten - ganz ohne Installation.
+
+
+BENUTZUNG DER APP
+------------------
+- Beim Start ist der Schutz automatisch aktiv (grüner Punkt
+  rechts in der Adressleiste).
+- Im Fenster ist ein eingebauter Browser (WebView2). Alles,
+  was dort angezeigt wird, ist Teil des geschuetzten Fensters.
+  Startseite und Suchmaschine stehen oben in
+  MainWindow.xaml.cs (HomeUrl / SearchUrl).
+- Im Sicherheitsprofil sind Downloads, Druckdialoge, Popups,
+  DevTools, Browser-Kontextmenues und externe URL-Protokolle
+  deaktiviert. Es werden nur http:// und https:// zugelassen.
+- Die App hat KEIN Taskleisten-Symbol. Stattdessen gibt es
+  ein kleines Symbol im Infobereich neben der Uhr (Tray).
+  Rechtsklick: Fenster zeigen/verstecken und Beenden.
+  Doppelklick (links): Fenster zeigen/verstecken.
+- Der Minimieren-Button versteckt das Fenster komplett
+  (zurueckholen ueber das Tray-Symbol).
+- Es gibt keine globalen Tastenkombinationen. Der
+  Aufnahmeschutz kann nur in der App unter "Einstellungen"
+  geaendert werden.
+- Unter "Einstellungen" gibt es Zoom-Steuerung, Favoriten
+  sowie eine Funktion zum Loeschen von Cookies, Cache und
+  sonstigen Browserdaten.
+- Fuer einen neuen Rechner sollte zuerst
+  "Start-SecureWindowApp.bat" gestartet werden. Die Datei
+  prueft die WebView2 Runtime und startet bei Bedarf den
+  offiziellen Microsoft-Bootstrapper. Die Installation
+  erfolgt ohne Administratorrechte pro Benutzer, sofern
+  keine Firmenrichtlinie dies verhindert.
+- Der Browser unterstuetzt mehrere Tabs. Mit "+" wird ein
+  neuer Tab geoeffnet; jeder Tab hat eine eigene Navigation,
+  Historie, Zoomstufe und Stummschaltung. Mit "×" im Tab-
+  Kopf wird ein Tab geschlossen. Der letzte Tab bleibt als
+  Grundansicht bestehen.
+- Die Navigationsleiste enthaelt ausserdem eine Schaltflaeche
+  zum Abbrechen laufender Seitenladevorgaenge und zum
+  Stummschalten der aktuell angezeigten Browserseite.
+
+Wichtig zu wissen:
+- Das Tray-Symbol selbst ist Teil der Taskleiste und wird bei
+  "Ganzen Bildschirm teilen" mit uebertragen. Tipp: Symbol in
+  Windows per Drag & Drop in den Ueberlauf (Pfeil ^) ziehen.
+- Das Tray-Menue (Rechtsklick) ist ein normales Windows-Menue
+  und daher waehrend es offen ist sichtbar.
+- Datei-Auswahldialoge fuer Uploads sind separate Windows-
+  Fenster und NICHT geschuetzt. Downloads werden im
+  Sicherheitsprofil vorher abgebrochen.
+- Cookies/Logins des Browsers liegen in
+  %LOCALAPPDATA%\SecureWindowApp\WebView2 (Ordner loeschen =
+  alles zuruecksetzen).
+- WebView2-Runtime: Auf Windows 11 und den meisten aktuellen
+  Windows-10-Rechnern schon vorhanden. Sonst zeigt die App
+  einen Hinweis mit Download-Link.
+- Die Bildschirmaufnahmesperre ist ein Schutz gegen Windows-
+  Aufnahme-APIs. Sie verhindert keine Kameraaufnahme,
+  externe Capture-Hardware oder jedes Drittanbieterprogramm.
+- Der GitHub-Workflow kann die EXE optional signieren. Dazu
+  muessen das Repository-Variable ENABLE_CODE_SIGNING auf
+  true und die Secrets WINDOWS_SIGNING_CERT_BASE64 sowie
+  WINDOWS_SIGNING_CERT_PASSWORD gesetzt werden.
+
+
+HAEUFIGE PROBLEME
+-------------------
+- "dotnet: Befehl nicht gefunden"
+  -> .NET 8 SDK ist nicht installiert oder nicht im PATH.
+     Nach der Installation ggf. die Eingabeaufforderung
+     neu oeffnen.
+
+- Build schlaegt fehl mit Fehlern zu "win-x64"
+  -> Sicherstellen, dass wirklich das SDK (nicht nur die
+     Runtime) installiert ist; das SDK bringt die noetigen
+     Publish-Werkzeuge mit.
+
+- Die App startet nicht ein zweites Mal
+  -> Das ist beabsichtigt. Es darf immer nur eine Instanz
+     von SecureWindowApp gleichzeitig laufen.
+
+- Der Schutz wirkt nicht vollstaendig
+  -> WDA_EXCLUDEFROMCAPTURE erfordert Windows 10 Version
+     2004 (Build 19041) oder neuer. Auf aelteren Systemen
+     wird automatisch auf den schwaecheren WDA_MONITOR-
+     Modus zurueckgefallen (der gruene Punkt zeigt per Tooltip
+     an, dass nur ein eingeschraenkter Windows-Modus aktiv ist).

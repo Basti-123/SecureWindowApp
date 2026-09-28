@@ -1,0 +1,12 @@
+bin/
+obj/
+publish/
+publish-*/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local WebView2 profile and user data
+WebView2/
+*.log

@@ -59,14 +59,86 @@ jobs:
       - name: Windows Smoke-Test (Schutz und WebView2-Initialisierung)
         shell: pwsh
         run: |
+          $results = Join-Path $env:GITHUB_WORKSPACE "test-results"
+          New-Item -ItemType Directory -Path $results -Force | Out-Null
+          $smokeLog = Join-Path $results "smoke-test.log"
+          "SecureWindowApp Windows Smoke-Test" | Set-Content -Path $smokeLog
+          "Start: $(Get-Date -Format o)" | Add-Content -Path $smokeLog
           $process = Start-Process -FilePath "${{ github.workspace }}\publish\SecureWindowApp.exe" -ArgumentList "--smoke-test" -PassThru
+          "PID: $($process.Id)" | Add-Content -Path $smokeLog
           if (-not $process.WaitForExit(30000)) {
             Stop-Process -Id $process.Id -Force
+            "FEHLER: Smoke-Test hat nach 30 Sekunden nicht beendet." | Add-Content -Path $smokeLog
             throw "Smoke-Test hat nach 30 Sekunden nicht beendet."
           }
+          "Ende: $(Get-Date -Format o)" | Add-Content -Path $smokeLog
+          "Exit-Code: $($process.ExitCode)" | Add-Content -Path $smokeLog
           if ($process.ExitCode -ne 0) {
             throw "Smoke-Test fehlgeschlagen (Exit-Code $($process.ExitCode))."
           }
+
+      - name: Windows UI-Diagnose und Screenshot
+        if: always()
+        shell: pwsh
+        run: |
+          $results = Join-Path $env:GITHUB_WORKSPACE "test-results"
+          New-Item -ItemType Directory -Path $results -Force | Out-Null
+          $diagnosticLog = Join-Path $results "ui-diagnostic.log"
+          "SecureWindowApp Windows UI-Diagnose" | Set-Content -Path $diagnosticLog
+          "Start: $(Get-Date -Format o)" | Add-Content -Path $diagnosticLog
+          $process = $null
+
+          try {
+            $process = Start-Process -FilePath "${{ github.workspace }}\publish\SecureWindowApp.exe" -PassThru
+            "PID: $($process.Id)" | Add-Content -Path $diagnosticLog
+            "Warte 12 Sekunden auf Fenster- und WebView2-Initialisierung." | Add-Content -Path $diagnosticLog
+            Start-Sleep -Seconds 12
+            $process.Refresh()
+
+            if ($process.HasExited) {
+              "FEHLER: Prozess wurde unerwartet beendet. Exit-Code: $($process.ExitCode)" | Add-Content -Path $diagnosticLog
+              throw "Die App wurde waehrend der UI-Diagnose unerwartet beendet."
+            }
+
+            "Prozess laeuft nach der Initialisierungsphase." | Add-Content -Path $diagnosticLog
+            Add-Type -AssemblyName System.Drawing
+            Add-Type -AssemblyName System.Windows.Forms
+            $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
+            $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            try {
+              $graphics.CopyFromScreen($screen.Left, $screen.Top, 0, 0, $bitmap.Size)
+              $screenshot = Join-Path $results "ui-diagnostic.png"
+              $bitmap.Save($screenshot, [System.Drawing.Imaging.ImageFormat]::Png)
+              "Screenshot gespeichert: $screenshot ($($screen.Width)x$($screen.Height))" | Add-Content -Path $diagnosticLog
+            }
+            finally {
+              $graphics.Dispose()
+              $bitmap.Dispose()
+            }
+          }
+          catch {
+            "DIAGNOSE-HINWEIS/FEHLER: $($_.Exception.Message)" | Add-Content -Path $diagnosticLog
+            Write-Warning $_.Exception.Message
+          }
+          finally {
+            if ($null -ne $process) {
+              $process.Refresh()
+              if (-not $process.HasExited) {
+                Stop-Process -Id $process.Id -Force
+                "Prozess nach Diagnose beendet." | Add-Content -Path $diagnosticLog
+              }
+            }
+            "Ende: $(Get-Date -Format o)" | Add-Content -Path $diagnosticLog
+          }
+
+      - name: Windows-Testprotokolle und Screenshot hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: SecureWindowApp-windows-test-results
+          path: test-results
+          if-no-files-found: warn
 
       - name: Fertige EXE als Download bereitstellen
         uses: actions/upload-artifact@v4

@@ -101,16 +101,62 @@ jobs:
             }
 
             "Prozess laeuft nach der Initialisierungsphase." | Add-Content -Path $diagnosticLog
+            Add-Type @"
+          using System;
+          using System.Runtime.InteropServices;
+
+          public static class SecureWindowAppDiagnostics
+          {
+              [StructLayout(LayoutKind.Sequential)]
+              public struct RECT
+              {
+                  public int Left;
+                  public int Top;
+                  public int Right;
+                  public int Bottom;
+              }
+
+              [DllImport("user32.dll")]
+              public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
+
+              [DllImport("user32.dll")]
+              public static extern bool SetForegroundWindow(IntPtr hWnd);
+
+              [DllImport("user32.dll")]
+              public static extern bool ShowWindow(IntPtr hWnd, int command);
+          }
+          "@
+            $null = $process.WaitForInputIdle(10000)
+            $process.Refresh()
+            $windowHandle = $process.MainWindowHandle
+            "Fenster-Handle: $windowHandle" | Add-Content -Path $diagnosticLog
+            if ($windowHandle -eq [IntPtr]::Zero) {
+              throw "Kein Hauptfenster-Handle der App gefunden."
+            }
+
+            [SecureWindowAppDiagnostics]::ShowWindow($windowHandle, 5) | Out-Null
+            [SecureWindowAppDiagnostics]::SetForegroundWindow($windowHandle) | Out-Null
+            Start-Sleep -Seconds 2
+
+            $windowRect = New-Object SecureWindowAppDiagnostics+RECT
+            if (-not [SecureWindowAppDiagnostics]::GetWindowRect($windowHandle, [ref]$windowRect)) {
+              throw "Die Fensterkoordinaten konnten nicht gelesen werden."
+            }
+
+            $windowWidth = $windowRect.Right - $windowRect.Left
+            $windowHeight = $windowRect.Bottom - $windowRect.Top
+            if ($windowWidth -le 0 -or $windowHeight -le 0) {
+              throw "Das App-Fenster hat ungueltige Abmessungen ($windowWidth x $windowHeight)."
+            }
+
             Add-Type -AssemblyName System.Drawing
-            Add-Type -AssemblyName System.Windows.Forms
-            $screen = [System.Windows.Forms.SystemInformation]::VirtualScreen
-            $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+            $bitmap = New-Object System.Drawing.Bitmap($windowWidth, $windowHeight)
             $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
             try {
-              $graphics.CopyFromScreen($screen.Left, $screen.Top, 0, 0, $bitmap.Size)
+              $graphics.CopyFromScreen($windowRect.Left, $windowRect.Top, 0, 0, $bitmap.Size)
               $screenshot = Join-Path $results "ui-diagnostic.png"
               $bitmap.Save($screenshot, [System.Drawing.Imaging.ImageFormat]::Png)
-              "Screenshot gespeichert: $screenshot ($($screen.Width)x$($screen.Height))" | Add-Content -Path $diagnosticLog
+              "App-Screenshot gespeichert: $screenshot ($($windowWidth)x$($windowHeight))" | Add-Content -Path $diagnosticLog
             }
             finally {
               $graphics.Dispose()

@@ -29,7 +29,10 @@ namespace SecureWindowApp
         private bool _browserInitializationFailed;
         private bool _blockedByProtectionFailure;
         private bool _protectionApiHealthy;
+        private bool _tabCreationInProgress;
+        private bool _addressBoxUpdating;
         private readonly string _favoritesFilePath;
+        private readonly string _webView2DiagnosticsFilePath;
         private readonly List<Favorite> _favorites = new();
         private bool _updatingFavorites;
         private bool _audioPlaying;
@@ -47,6 +50,9 @@ namespace SecureWindowApp
             _favoritesFilePath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SecureWindowApp", "favorites.json");
+            _webView2DiagnosticsFilePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SecureWindowApp", "webview2-process-failures.log");
 
             InitializeComponent();
             LoadFavorites();
@@ -65,6 +71,19 @@ namespace SecureWindowApp
             {
                 CaptureProtection.EnabledChanged -= OnProtectionEnabledChanged;
                 _tray?.Dispose();
+
+                foreach (var tab in new List<BrowserTabState>(_tabs))
+                {
+                    try
+                    {
+                        tab.WebView.Dispose();
+                    }
+                    catch
+                    {
+                        // Beim Beenden darf ein bereits beendeter WebView2-
+                        // Controller den App-Schluss nicht verhindern.
+                    }
+                }
             };
         }
 
@@ -154,7 +173,7 @@ namespace SecureWindowApp
 
         private async void NewTabButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_webEnvironment == null || !_protectionApiHealthy)
+            if (_webEnvironment == null || !_protectionApiHealthy || _tabCreationInProgress)
                 return;
 
             await CreateTabAsync(HomeUrl, selectTab: true);
@@ -342,27 +361,34 @@ namespace SecureWindowApp
 
         private async Task CreateTabAsync(string initialUrl, bool selectTab)
         {
-            if (_webEnvironment == null)
+            if (_webEnvironment == null || _tabCreationInProgress)
                 return;
 
-            bool isFirstTab = _tabs.Count == 0;
-            var webView = new WebView2
-            {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
-                Visibility = Visibility.Collapsed
-            };
-            var state = new BrowserTabState
-            {
-                WebView = webView
-            };
-
-            _tabs.Add(state);
-            if (selectTab)
-                BrowserTabStrip.SelectedItem = state;
-
+            _tabCreationInProgress = true;
+            BrowserTabState? state = null;
             try
             {
+                bool isFirstTab = _tabs.Count == 0;
+                var webView = new WebView2
+                {
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Stretch,
+                    Visibility = Visibility.Collapsed
+                };
+                state = new BrowserTabState
+                {
+                    WebView = webView
+                };
+
+                // Jeder WebView2-HwndHost wird genau einmal in denselben
+                // WPF-Host eingefügt. Beim Tabwechsel ändern wir nur noch die
+                // Sichtbarkeit und hängen native Fenster nicht ständig um.
+                _tabs.Add(state);
+                BrowserContentHost.Children.Add(webView);
+                if (selectTab)
+                    BrowserTabStrip.SelectedItem = state;
+
+                UpdateSelectedTabUi();
                 await webView.EnsureCoreWebView2Async(_webEnvironment);
                 var core = webView.CoreWebView2;
 
@@ -394,11 +420,12 @@ namespace SecureWindowApp
                 // Popups werden blockiert, damit keine ungeschuetzten separaten
                 // Browserfenster entstehen. Normale Navigation bleibt moeglich.
                 core.NewWindowRequested += (_, args) => args.Handled = true;
+                core.ProcessFailed += (_, args) => OnWebViewProcessFailed(state!, args);
 
                 core.SourceChanged += (_, _) =>
                 {
                     if (ReferenceEquals(CurrentTab, state) && !AddressBox.IsKeyboardFocusWithin)
-                        AddressBox.Text = core.Source;
+                        SetAddressBoxText(core.Source);
                 };
                 core.HistoryChanged += (_, _) =>
                 {
@@ -434,6 +461,7 @@ namespace SecureWindowApp
                 };
 
                 state.IsInitialized = true;
+                state.IsReadyForClose = true;
                 state.ErrorMessage = null;
                 state.Title = "Neuer Tab";
                 core.Navigate(initialUrl);
@@ -448,14 +476,32 @@ namespace SecureWindowApp
             }
             catch (Exception ex)
             {
-                state.InitializationFailed = true;
-                state.ErrorMessage =
-                    "Dieser Tab konnte nicht gestartet werden.\n\nDetails: " + ex.Message;
-                if (isFirstTab)
+                if (state == null)
                 {
                     _browserInitializationFailed = true;
                     BrowserInitializationCompleted?.Invoke(false);
                 }
+                else
+                {
+                    state.InitializationFailed = true;
+                    state.IsReadyForClose = true;
+                    state.ErrorMessage =
+                        "Dieser Tab konnte nicht gestartet werden.\n\nDetails: " + ex.Message;
+                    if (_tabs.Contains(state) && !BrowserContentHost.Children.Contains(state.WebView))
+                        BrowserContentHost.Children.Add(state.WebView);
+
+                    if (_tabs.Count == 1)
+                    {
+                        _browserInitializationFailed = true;
+                        BrowserInitializationCompleted?.Invoke(false);
+                    }
+
+                    UpdateSelectedTabUi();
+                }
+            }
+            finally
+            {
+                _tabCreationInProgress = false;
 
                 UpdateSelectedTabUi();
             }
@@ -477,6 +523,9 @@ namespace SecureWindowApp
 
         private void CloseTab(BrowserTabState state)
         {
+            if (!state.IsReadyForClose)
+                return;
+
             if (_tabs.Count == 1)
             {
                 SettingsMessage.Text = "Der letzte Tab kann nicht geschlossen werden.";
@@ -485,7 +534,18 @@ namespace SecureWindowApp
 
             int index = _tabs.IndexOf(state);
             bool wasSelected = ReferenceEquals(CurrentTab, state);
+            BrowserContentHost.Children.Remove(state.WebView);
             _tabs.Remove(state);
+
+            try
+            {
+                state.WebView.Dispose();
+            }
+            catch
+            {
+                // Ein bereits beendeter WebView2-Controller darf das
+                // Schließen eines Tabs nicht zum App-Absturz machen.
+            }
 
             if (wasSelected && _tabs.Count > 0)
                 BrowserTabStrip.SelectedItem = _tabs[Math.Min(index, _tabs.Count - 1)];
@@ -506,22 +566,27 @@ namespace SecureWindowApp
             var state = CurrentTab;
             if (state == null)
             {
-                NewTabButton.IsEnabled = _webEnvironment != null && _protectionApiHealthy;
-                BrowserContentHost.Content = null;
+                NewTabButton.IsEnabled = !_tabCreationInProgress &&
+                    _webEnvironment != null && _protectionApiHealthy;
+                foreach (var tab in _tabs)
+                    tab.WebView.Visibility = Visibility.Collapsed;
                 MuteButton.IsEnabled = false;
                 UpdateZoomText();
                 UpdateNavButtons();
                 return;
             }
 
-            NewTabButton.IsEnabled = _webEnvironment != null && _protectionApiHealthy;
+            NewTabButton.IsEnabled = !_tabCreationInProgress &&
+                _webEnvironment != null && _protectionApiHealthy;
             bool showTabError = state.InitializationFailed;
-            BrowserContentHost.Content = showTabError || _blockedByProtectionFailure
-                ? null
-                : state.WebView;
-            state.WebView.Visibility = showTabError || _blockedByProtectionFailure
-                ? Visibility.Collapsed
-                : Visibility.Visible;
+            foreach (var tab in _tabs)
+            {
+                bool isVisible = ReferenceEquals(tab, state) &&
+                    !tab.InitializationFailed && !_blockedByProtectionFailure;
+                tab.WebView.Visibility = isVisible
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
 
             if (_blockedByProtectionFailure)
             {
@@ -535,7 +600,7 @@ namespace SecureWindowApp
 
             if (state.IsInitialized && state.WebView.CoreWebView2 != null)
             {
-                AddressBox.Text = state.WebView.CoreWebView2.Source;
+                SetAddressBoxText(state.WebView.CoreWebView2.Source);
                 UpdateWindowTitle(state.WebView.CoreWebView2.DocumentTitle);
             }
 
@@ -620,6 +685,78 @@ namespace SecureWindowApp
             }
         }
 
+        private void SetAddressBoxText(string? address)
+        {
+            if (_addressBoxUpdating || AddressBox.IsKeyboardFocusWithin)
+                return;
+
+            try
+            {
+                _addressBoxUpdating = true;
+                string value = address ?? string.Empty;
+                if (!string.Equals(AddressBox.Text, value, StringComparison.Ordinal))
+                    AddressBox.Text = value;
+            }
+            finally
+            {
+                _addressBoxUpdating = false;
+            }
+        }
+
+        private void OnWebViewProcessFailed(
+            BrowserTabState state,
+            CoreWebView2ProcessFailedEventArgs args)
+        {
+            string details =
+                $"{args.ProcessFailedKind}; Grund: {args.Reason}; " +
+                $"Prozess: {args.ProcessDescription}; Exit-Code: {args.ExitCode}";
+            LogWebViewProcessFailure(details);
+
+            void ShowFailure()
+            {
+                if (state.InitializationFailed)
+                    return;
+
+                state.InitializationFailed = true;
+                state.IsReadyForClose = true;
+                state.ErrorMessage =
+                    "Der WebView2-Browserprozess wurde beendet oder ist abgestürzt.\n\n" +
+                    "Bitte diesen Tab schließen und einen neuen Tab öffnen.\n\n" +
+                    "Details: " + details;
+
+                if (ReferenceEquals(CurrentTab, state))
+                {
+                    ErrorText.Visibility = Visibility.Visible;
+                    ErrorText.Text = state.ErrorMessage;
+                }
+
+                UpdateSelectedTabUi();
+            }
+
+            if (Dispatcher.CheckAccess())
+                ShowFailure();
+            else
+                Dispatcher.BeginInvoke(new Action(ShowFailure));
+        }
+
+        private void LogWebViewProcessFailure(string details)
+        {
+            try
+            {
+                string? directory = Path.GetDirectoryName(_webView2DiagnosticsFilePath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+
+                File.AppendAllText(
+                    _webView2DiagnosticsFilePath,
+                    $"[{DateTime.Now:O}] {details}{Environment.NewLine}");
+            }
+            catch
+            {
+                // Ein Diagnose-Log darf die Browserfunktion nicht stoeren.
+            }
+        }
+
         private void UpdateWindowTitle(string? documentTitle)
         {
             Title = string.IsNullOrWhiteSpace(documentTitle)
@@ -650,7 +787,6 @@ namespace SecureWindowApp
             foreach (var tab in _tabs)
                 tab.WebView.Visibility = Visibility.Collapsed;
 
-            BrowserContentHost.Content = null;
             ErrorText.Visibility = Visibility.Visible;
             ErrorText.Text = message;
             NewTabButton.IsEnabled = false;
@@ -706,7 +842,6 @@ namespace SecureWindowApp
                 foreach (var tab in _tabs)
                     tab.WebView.Visibility = Visibility.Collapsed;
 
-                BrowserContentHost.Content = null;
                 ErrorText.Visibility = Visibility.Visible;
                 ErrorText.Text =
                     "Sicherheitsfehler: Der Bildschirmaufnahmeschutz konnte nicht " +
@@ -768,6 +903,20 @@ namespace SecureWindowApp
             public bool IsInitialized { get; set; }
             public bool InitializationFailed { get; set; }
             public string? ErrorMessage { get; set; }
+
+            private bool _isReadyForClose;
+            public bool IsReadyForClose
+            {
+                get => _isReadyForClose;
+                set
+                {
+                    if (_isReadyForClose == value)
+                        return;
+
+                    _isReadyForClose = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsReadyForClose)));
+                }
+            }
 
             public event PropertyChangedEventHandler? PropertyChanged;
         }

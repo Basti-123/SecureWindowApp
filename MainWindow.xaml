@@ -136,6 +136,7 @@
                                            Margin="0,0,24,0"/>
                                 <Button Content="×"
                                         Tag="{Binding}"
+                                        IsEnabled="{Binding IsReadyForClose}"
                                         Width="22"
                                         Height="22"
                                         HorizontalAlignment="Right"
@@ -235,7 +236,10 @@
                     BorderBrush="#DADCE0"
                     BorderThickness="1"
                     CornerRadius="0,0,10,10"/>
-            <ContentControl x:Name="BrowserContentHost"/>
+            <!-- WebView2-HwndHosts bleiben dauerhaft im selben WPF-Host.
+                 Beim Tabwechsel wird nur die Sichtbarkeit geändert; dadurch
+                 wird kein natives WebView2-Fenster ständig umgehängt. -->
+            <Grid x:Name="BrowserContentHost" ClipToBounds="True"/>
             <TextBlock x:Name="ErrorText"
                        Visibility="Collapsed"
                        Foreground="{StaticResource SubTextBrush}"

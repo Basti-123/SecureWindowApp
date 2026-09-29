@@ -156,6 +156,10 @@ BENUTZUNG DER APP
   Historie, Zoomstufe und Stummschaltung. Mit "×" im Tab-
   Kopf wird ein Tab geschlossen. Der letzte Tab bleibt als
   Grundansicht bestehen.
+- Die Tab-WebViews bleiben stabil im gleichen WPF-Host; neue
+  Tabs werden nacheinander initialisiert, um Konflikte mit
+  WebView2 zu vermeiden. Unerwartete WebView2-Prozessfehler
+  werden im aktuellen Tab angezeigt und protokolliert.
 - Die Navigationsleiste enthaelt ausserdem eine Schaltflaeche
   zum Abbrechen laufender Seitenladevorgaenge und zum
   Stummschalten der aktuell angezeigten Browserseite.
@@ -172,6 +176,9 @@ Wichtig zu wissen:
 - Cookies/Logins des Browsers liegen in
   %LOCALAPPDATA%\SecureWindowApp\WebView2 (Ordner loeschen =
   alles zuruecksetzen).
+- WebView2-Prozessfehler werden zusaetzlich in
+  %LOCALAPPDATA%\SecureWindowApp\webview2-process-failures.log
+  protokolliert.
 - WebView2-Runtime: Auf Windows 11 und den meisten aktuellen
   Windows-10-Rechnern schon vorhanden. Sonst zeigt die App
   einen Hinweis mit Download-Link.

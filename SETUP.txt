@@ -22,6 +22,11 @@ App.xaml / App.xaml.cs   Anwendungsstart, registriert den
 CaptureProtection.cs     Zentrale Schutzlogik (P/Invoke)
 TrayIconManager.cs       Tray-Symbol (Infobereich) mit Menue
   build.bat                Baut die fertige, portable .exe
+  Install-SecureWindowApp.bat
+                         Installiert die App nur fuer den aktuellen
+                         Benutzer ohne Program-Files/Adminzwang
+  Uninstall-SecureWindowApp.bat
+                         Entfernt diese Benutzerinstallation
   Start-SecureWindowApp.bat Prueft WebView2, installiert es bei Bedarf
                          fuer den aktuellen Benutzer und startet die App
   MicrosoftEdgeWebView2Setup.exe
@@ -122,6 +127,23 @@ EINMALIGES SETUP (OPTION A, lokaler Windows-Rechner)
    starten - ganz ohne Installation.
 
 
+BENUTZER-INSTALLATION OHNE ADMINRECHTE
+--------------------------------------
+Im fertigen ZIP kann "Install-SecureWindowApp.bat" gestartet
+werden. Die App wird nach
+
+    %LOCALAPPDATA%\Programs\SecureWindowApp
+
+kopiert und eine Verknuepfung im Startmenue des aktuellen
+Benutzers angelegt. Es werden weder C:\Program Files noch
+HKLM oder Windows-Dienste veraendert. Deshalb wird normalerweise
+kein Administratorpasswort benoetigt. Die WebView2-Runtime kann
+je nach Windows- und Firmenkonfiguration trotzdem eine eigene
+Berechtigungsabfrage anzeigen. Mit
+"Uninstall-SecureWindowApp.bat" wird nur diese Benutzerinstallation
+entfernt; Browserdaten bleiben absichtlich erhalten.
+
+
 BENUTZUNG DER APP
 ------------------
 - Beim Start ist der Schutz automatisch aktiv (grüner Punkt
@@ -144,7 +166,9 @@ BENUTZUNG DER APP
   geaendert werden.
 - Unter "Einstellungen" gibt es Zoom-Steuerung, Favoriten
   sowie eine Funktion zum Loeschen von Cookies, Cache und
-  sonstigen Browserdaten.
+  sonstigen Browserdaten. Die geoeffnete Sitzung wird lokal
+  gespeichert und beim naechsten Start wiederhergestellt; sie
+  kann ebenfalls in den Einstellungen geloescht werden.
 - Fuer einen neuen Rechner sollte zuerst
   "Start-SecureWindowApp.bat" gestartet werden. Die Datei
   prueft die WebView2 Runtime und startet bei Bedarf den
@@ -155,7 +179,10 @@ BENUTZUNG DER APP
   neuer Tab geoeffnet; jeder Tab hat eine eigene Navigation,
   Historie, Zoomstufe und Stummschaltung. Mit "×" im Tab-
   Kopf wird ein Tab geschlossen. Der letzte Tab bleibt als
-  Grundansicht bestehen.
+  Grundansicht bestehen. Tabs koennen per Drag-and-drop sortiert,
+  dupliziert und geschlossene Tabs wiederhergestellt werden.
+  target="_blank"-Links werden in einem neuen geschuetzten Tab
+  geoeffnet; nicht erlaubte Popups bleiben blockiert.
 - Die Tab-WebViews bleiben stabil im gleichen WPF-Host; neue
   Tabs werden nacheinander initialisiert, um Konflikte mit
   WebView2 zu vermeiden. Unerwartete WebView2-Prozessfehler
@@ -163,6 +190,9 @@ BENUTZUNG DER APP
 - Die Navigationsleiste enthaelt ausserdem eine Schaltflaeche
   zum Abbrechen laufender Seitenladevorgaenge und zum
   Stummschalten der aktuell angezeigten Browserseite.
+- Kamera-, Mikrofon-, Standort-, Benachrichtigungs- und andere
+  Website-Berechtigungen werden standardmaessig abgelehnt.
+  Auch die Web-API fuer Bildschirmfreigabe wird blockiert.
 
 Wichtig zu wissen:
 - Das Tray-Symbol selbst ist Teil der Taskleiste und wird bei
@@ -176,6 +206,8 @@ Wichtig zu wissen:
 - Cookies/Logins des Browsers liegen in
   %LOCALAPPDATA%\SecureWindowApp\WebView2 (Ordner loeschen =
   alles zuruecksetzen).
+- Die geoeffnete Tab-Sitzung liegt in
+  %LOCALAPPDATA%\SecureWindowApp\session.json.
 - WebView2-Prozessfehler werden zusaetzlich in
   %LOCALAPPDATA%\SecureWindowApp\webview2-process-failures.log
   protokolliert.

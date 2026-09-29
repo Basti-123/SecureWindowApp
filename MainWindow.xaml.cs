@@ -32,10 +32,15 @@ namespace SecureWindowApp
         private bool _tabCreationInProgress;
         private bool _addressBoxUpdating;
         private readonly string _favoritesFilePath;
+        private readonly string _sessionFilePath;
         private readonly string _webView2DiagnosticsFilePath;
         private readonly List<Favorite> _favorites = new();
+        private readonly Stack<ClosedTabState> _closedTabs = new();
         private bool _updatingFavorites;
         private bool _audioPlaying;
+        private Point _tabDragStartPoint;
+        private BrowserTabState? _draggedTab;
+        private bool _isClosing;
 
         public event Action<bool>? BrowserInitializationCompleted;
 
@@ -50,6 +55,9 @@ namespace SecureWindowApp
             _favoritesFilePath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SecureWindowApp", "favorites.json");
+            _sessionFilePath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SecureWindowApp", "session.json");
             _webView2DiagnosticsFilePath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "SecureWindowApp", "webview2-process-failures.log");
@@ -69,6 +77,8 @@ namespace SecureWindowApp
 
             Closed += (_, _) =>
             {
+                _isClosing = true;
+                SaveSession();
                 CaptureProtection.EnabledChanged -= OnProtectionEnabledChanged;
                 _tray?.Dispose();
 
@@ -253,6 +263,65 @@ namespace SecureWindowApp
             SettingsMessage.Text = "Favorit entfernt.";
         }
 
+        private async void DuplicateTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            string? url = CurrentCoreWebView2?.Source;
+            if (_webEnvironment == null || !_protectionApiHealthy || !IsAllowedNavigation(url))
+            {
+                SettingsMessage.Text = "Der aktuelle Tab ist noch nicht bereit.";
+                return;
+            }
+
+            await CreateTabAsync(url!, selectTab: true);
+            SettingsMessage.Text = "Tab dupliziert.";
+        }
+
+        private async void RestoreClosedTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_closedTabs.Count == 0)
+            {
+                SettingsMessage.Text = "Es gibt keinen geschlossenen Tab zum Wiederherstellen.";
+                return;
+            }
+
+            if (_webEnvironment == null || !_protectionApiHealthy)
+                return;
+
+            ClosedTabState closedTab = _closedTabs.Pop();
+            await CreateTabAsync(closedTab.Url, selectTab: true);
+            SettingsMessage.Text = "Geschlossener Tab wiederhergestellt.";
+        }
+
+        private void CloseOtherTabsButton_Click(object sender, RoutedEventArgs e)
+        {
+            BrowserTabState? selected = CurrentTab;
+            if (selected == null)
+                return;
+
+            foreach (var tab in new List<BrowserTabState>(_tabs))
+            {
+                if (!ReferenceEquals(tab, selected) && tab.IsReadyForClose)
+                    CloseTab(tab, addToClosedTabs: false);
+            }
+
+            SettingsMessage.Text = "Die anderen Tabs wurden geschlossen.";
+        }
+
+        private void ClearSessionButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (File.Exists(_sessionFilePath))
+                    File.Delete(_sessionFilePath);
+
+                SettingsMessage.Text = "Die gespeicherte Sitzung wurde gelöscht.";
+            }
+            catch (Exception ex)
+            {
+                SettingsMessage.Text = "Die Sitzung konnte nicht gelöscht werden: " + ex.Message;
+            }
+        }
+
         private void FavoritesBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_updatingFavorites || FavoritesBox.SelectedItem is not Favorite favorite)
@@ -306,6 +375,65 @@ namespace SecureWindowApp
             _updatingFavorites = false;
         }
 
+        private List<string> LoadSession()
+        {
+            try
+            {
+                if (!File.Exists(_sessionFilePath))
+                    return new List<string>();
+
+                var urls = JsonSerializer.Deserialize<List<string>>(
+                    File.ReadAllText(_sessionFilePath));
+                if (urls == null)
+                    return new List<string>();
+
+                var validUrls = new List<string>();
+                foreach (string? url in urls)
+                {
+                    if (!string.IsNullOrWhiteSpace(url) && IsAllowedNavigation(url))
+                        validUrls.Add(url);
+
+                    if (validUrls.Count == 12)
+                        break;
+                }
+
+                return validUrls;
+            }
+            catch
+            {
+                // Eine beschädigte Sitzung darf den Browserstart nicht verhindern.
+                return new List<string>();
+            }
+        }
+
+        private void SaveSession()
+        {
+            if (_isClosing && _tabs.Count == 0)
+                return;
+
+            try
+            {
+                var urls = new List<string>();
+                foreach (var tab in _tabs)
+                {
+                    string? url = tab.WebView.CoreWebView2?.Source;
+                    if (IsAllowedNavigation(url))
+                        urls.Add(url!);
+                }
+
+                string? directory = Path.GetDirectoryName(_sessionFilePath);
+                if (!string.IsNullOrEmpty(directory))
+                    Directory.CreateDirectory(directory);
+
+                File.WriteAllText(_sessionFilePath,
+                    JsonSerializer.Serialize(urls, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            catch
+            {
+                // Sitzungswiederherstellung ist Komfort, kein Grund für einen Absturz.
+            }
+        }
+
         private void OnProtectionEnabledChanged(bool _)
         {
             if (Dispatcher.CheckAccess())
@@ -344,7 +472,16 @@ namespace SecureWindowApp
                     browserExecutableFolder: null,
                     userDataFolder: userDataFolder);
 
-                await CreateTabAsync(HomeUrl, selectTab: true);
+                List<string> sessionUrls = LoadSession();
+                if (sessionUrls.Count == 0)
+                {
+                    await CreateTabAsync(HomeUrl, selectTab: true);
+                }
+                else
+                {
+                    for (int index = 0; index < sessionUrls.Count; index++)
+                        await CreateTabAsync(sessionUrls[index], selectTab: index == 0);
+                }
             }
             catch (Exception ex)
             {
@@ -403,6 +540,7 @@ namespace SecureWindowApp
                 core.Settings.AreBrowserAcceleratorKeysEnabled = false;
                 core.Settings.IsPasswordAutosaveEnabled = false;
                 core.Settings.IsGeneralAutofillEnabled = false;
+                core.Settings.IsStatusBarEnabled = false;
 
                 core.NavigationStarting += (_, args) => OnNavigationStarting(state, args);
                 core.DownloadStarting += (_, args) =>
@@ -412,14 +550,43 @@ namespace SecureWindowApp
                     // Sicherheitsprofil vollstaendig abgebrochen.
                     args.Cancel = true;
                     args.Handled = true;
+                    if (ReferenceEquals(CurrentTab, state))
+                        SettingsMessage.Text = "Downloads sind im Sicherheitsprofil deaktiviert.";
+                };
+
+                core.PermissionRequested += (_, args) =>
+                {
+                    // Kamera, Mikrofon, Standort, Benachrichtigungen und andere
+                    // privilegierte Web-APIs bekommen keine Berechtigung.
+                    args.State = CoreWebView2PermissionState.Deny;
+                    args.SavesInProfile = false;
+                    args.Handled = true;
+                    if (ReferenceEquals(CurrentTab, state))
+                        SettingsMessage.Text = "Berechtigungsanfrage der Website wurde blockiert.";
+                };
+
+                core.ScreenCaptureStarting += (_, args) =>
+                {
+                    // Auch die Web-API getDisplayMedia darf keine eigene
+                    // Bildschirmaufnahme aus dem Browser heraus starten.
+                    args.Cancel = true;
+                    args.Handled = true;
                 };
 
                 await core.AddScriptToExecuteOnDocumentCreatedAsync(
                     "window.print = function () { return false; };");
 
-                // Popups werden blockiert, damit keine ungeschuetzten separaten
-                // Browserfenster entstehen. Normale Navigation bleibt moeglich.
-                core.NewWindowRequested += (_, args) => args.Handled = true;
+                // target="_blank" wird in einen geschützten neuen Tab übernommen;
+                // unbekannte oder gefährliche Protokolle bleiben blockiert.
+                core.NewWindowRequested += (_, args) =>
+                {
+                    if (IsAllowedNavigation(args.Uri) && !_tabCreationInProgress)
+                        _ = CreateTabAsync(args.Uri, selectTab: true);
+                    else if (ReferenceEquals(CurrentTab, state))
+                        SettingsMessage.Text = "Dieses Popup wurde aus Sicherheitsgründen blockiert.";
+
+                    args.Handled = true;
+                };
                 core.ProcessFailed += (_, args) => OnWebViewProcessFailed(state!, args);
 
                 core.SourceChanged += (_, _) =>
@@ -458,6 +625,8 @@ namespace SecureWindowApp
                         StopButton.IsEnabled = false;
                         UpdateNavButtons();
                     }
+
+                    SaveSession();
                 };
 
                 state.IsInitialized = true;
@@ -521,7 +690,7 @@ namespace SecureWindowApp
                 CloseTab(state);
         }
 
-        private void CloseTab(BrowserTabState state)
+        private void CloseTab(BrowserTabState state, bool addToClosedTabs = true)
         {
             if (!state.IsReadyForClose)
                 return;
@@ -534,6 +703,18 @@ namespace SecureWindowApp
 
             int index = _tabs.IndexOf(state);
             bool wasSelected = ReferenceEquals(CurrentTab, state);
+            string? lastKnownUrl = state.WebView.CoreWebView2?.Source;
+            string closedTitle = state.Title;
+
+            if (addToClosedTabs && IsAllowedNavigation(lastKnownUrl))
+            {
+                _closedTabs.Push(new ClosedTabState
+                {
+                    Title = closedTitle,
+                    Url = lastKnownUrl!
+                });
+            }
+
             BrowserContentHost.Children.Remove(state.WebView);
             _tabs.Remove(state);
 
@@ -550,6 +731,7 @@ namespace SecureWindowApp
             if (wasSelected && _tabs.Count > 0)
                 BrowserTabStrip.SelectedItem = _tabs[Math.Min(index, _tabs.Count - 1)];
 
+            SaveSession();
             UpdateSelectedTabUi();
         }
 
@@ -559,6 +741,59 @@ namespace SecureWindowApp
                 return;
 
             UpdateSelectedTabUi();
+        }
+
+        private void BrowserTabStrip_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            _tabDragStartPoint = e.GetPosition(BrowserTabStrip);
+            _draggedTab = FindVisualParent<ListBoxItem>(e.OriginalSource as DependencyObject)?.DataContext as BrowserTabState;
+        }
+
+        private void BrowserTabStrip_PreviewMouseMove(object sender, MouseEventArgs e)
+        {
+            if (_draggedTab == null || e.LeftButton != MouseButtonState.Pressed)
+                return;
+
+            Point current = e.GetPosition(BrowserTabStrip);
+            if (Math.Abs(current.X - _tabDragStartPoint.X) < SystemParameters.MinimumHorizontalDragDistance &&
+                Math.Abs(current.Y - _tabDragStartPoint.Y) < SystemParameters.MinimumVerticalDragDistance)
+                return;
+
+            BrowserTabState dragged = _draggedTab;
+            _draggedTab = null;
+            DragDrop.DoDragDrop(BrowserTabStrip, dragged, DragDropEffects.Move);
+        }
+
+        private void BrowserTabStrip_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(typeof(BrowserTabState)))
+                return;
+
+            var dragged = e.Data.GetData(typeof(BrowserTabState)) as BrowserTabState;
+            var target = FindVisualParent<ListBoxItem>(e.OriginalSource as DependencyObject)?.DataContext as BrowserTabState;
+            if (dragged == null || target == null || ReferenceEquals(dragged, target))
+                return;
+
+            int oldIndex = _tabs.IndexOf(dragged);
+            int targetIndex = _tabs.IndexOf(target);
+            if (oldIndex >= 0 && targetIndex >= 0)
+                _tabs.Move(oldIndex, targetIndex);
+
+            SaveSession();
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject? child)
+            where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T parent)
+                    return parent;
+
+                child = VisualTreeHelper.GetParent(child);
+            }
+
+            return null;
         }
 
         private void UpdateSelectedTabUi()
@@ -624,8 +859,9 @@ namespace SecureWindowApp
             if (!Uri.TryCreate(address, UriKind.Absolute, out var uri))
                 return false;
 
-            return uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
-                   uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase);
+            return !string.IsNullOrWhiteSpace(uri.Host) &&
+                   (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+                    uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase));
         }
 
         private void UpdateNavButtons()
@@ -671,6 +907,11 @@ namespace SecureWindowApp
             e.Handled = true;
             NavigateTo(ResolveInput(AddressBox.Text));
             CurrentTab?.WebView.Focus();
+        }
+
+        private void AddressBox_GotFocus(object sender, RoutedEventArgs e)
+        {
+            AddressBox.SelectAll();
         }
 
         private void NavigateTo(string address)
@@ -925,6 +1166,12 @@ namespace SecureWindowApp
         {
             public string Title { get; set; } = string.Empty;
             public string Url { get; set; } = string.Empty;
+        }
+
+        private sealed class ClosedTabState
+        {
+            public string Title { get; init; } = "Neuer Tab";
+            public string Url { get; init; } = HomeUrl;
         }
     }
 }

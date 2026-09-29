@@ -115,6 +115,10 @@
                 <ListBox x:Name="BrowserTabStrip"
                          ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=Tabs}"
                          SelectionChanged="BrowserTabStrip_SelectionChanged"
+                         AllowDrop="True"
+                         PreviewMouseLeftButtonDown="BrowserTabStrip_PreviewMouseLeftButtonDown"
+                         PreviewMouseMove="BrowserTabStrip_PreviewMouseMove"
+                         Drop="BrowserTabStrip_Drop"
                          ItemContainerStyle="{StaticResource BrowserTabItem}"
                          Background="Transparent"
                          BorderThickness="0"
@@ -217,6 +221,7 @@
                              FontSize="13"
                              Padding="12,0,36,0"
                              VerticalContentAlignment="Center"
+                             GotFocus="AddressBox_GotFocus"
                              KeyDown="AddressBox_KeyDown"/>
                     <Ellipse x:Name="ProtectionIndicator"
                              Width="10"
@@ -299,6 +304,46 @@
                         <Button Content="Aktuelle Seite speichern" Padding="10,6" Click="AddFavoriteButton_Click"/>
                         <Button Content="Entfernen" Padding="10,6" Margin="8,0,0,0" Click="RemoveFavoriteButton_Click"/>
                     </StackPanel>
+
+                    <Separator Margin="0,22,0,14"/>
+                    <TextBlock Text="Tabs und Sitzung"
+                               Foreground="{StaticResource TextBrush}"
+                               FontSize="15"
+                               FontWeight="SemiBold"/>
+                    <TextBlock Text="Geöffnete Tabs werden lokal gespeichert und beim nächsten Start wiederhergestellt. Die Sitzung verlässt den Rechner nicht. Tabs können per Drag-and-drop sortiert werden."
+                               Foreground="{StaticResource SubTextBrush}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,8,0,0"/>
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button Content="Aktuellen Tab duplizieren"
+                                Padding="10,6"
+                                Margin="0,0,8,8"
+                                Click="DuplicateTabButton_Click"/>
+                        <Button Content="Geschlossenen Tab öffnen"
+                                Padding="10,6"
+                                Margin="0,0,8,8"
+                                Click="RestoreClosedTabButton_Click"/>
+                        <Button Content="Andere Tabs schließen"
+                                Padding="10,6"
+                                Margin="0,0,8,8"
+                                Click="CloseOtherTabsButton_Click"/>
+                        <Button Content="Sitzung löschen"
+                                Padding="10,6"
+                                Margin="0,0,8,8"
+                                Click="ClearSessionButton_Click"/>
+                    </WrapPanel>
+
+                    <Separator Margin="0,14,0,14"/>
+                    <TextBlock Text="Sicherheitsprofil"
+                               Foreground="{StaticResource TextBrush}"
+                               FontSize="15"
+                               FontWeight="SemiBold"/>
+                    <TextBlock Text="Downloads, Druckdialoge, Popups, DevTools sowie Kamera-, Mikrofon-, Standort-, Benachrichtigungs- und Bildschirmfreigabe-Anfragen werden blockiert. Es sind nur HTTP- und HTTPS-Adressen erlaubt."
+                               Foreground="{StaticResource SubTextBrush}"
+                               FontSize="12"
+                               TextWrapping="Wrap"
+                               Margin="0,8,0,0"/>
                 </StackPanel>
             </Border>
         </Grid>

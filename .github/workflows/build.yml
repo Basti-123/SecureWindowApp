@@ -52,6 +52,8 @@ jobs:
         shell: pwsh
         run: |
           Copy-Item "${{ github.workspace }}\Start-SecureWindowApp.bat" "${{ github.workspace }}\publish\Start-SecureWindowApp.bat" -Force
+          Copy-Item "${{ github.workspace }}\Install-SecureWindowApp.bat" "${{ github.workspace }}\publish\Install-SecureWindowApp.bat" -Force
+          Copy-Item "${{ github.workspace }}\Uninstall-SecureWindowApp.bat" "${{ github.workspace }}\publish\Uninstall-SecureWindowApp.bat" -Force
           Copy-Item "${{ github.workspace }}\MicrosoftEdgeWebView2Setup.exe" "${{ github.workspace }}\publish\MicrosoftEdgeWebView2Setup.exe" -Force
           Copy-Item "${{ github.workspace }}\SETUP.txt" "${{ github.workspace }}\publish\SETUP.txt" -Force
           Compress-Archive -Path "${{ github.workspace }}\publish\*" -DestinationPath "${{ github.workspace }}\SecureWindowApp-win-x64.zip" -Force

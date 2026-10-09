@@ -1,9 +1,9 @@
 # Veyra auf Cloudflare Workers
 
-Die Website wird als Worker `veyra-website` im Konto **Veyra Browser**
-veröffentlicht. Die von Wrangler ausgegebene workers.dev-Adresse ist die
-öffentliche Website-Adresse. `cloudflare/wrangler.json` enthält die Konto-
-und Ressourcen-Zuordnung; Zugangsdaten gehören nicht in diese Datei.
+Die Website läuft unter **https://veyra-website.veyraapp.workers.dev** als
+Worker `veyra-website` im Konto **Veyra Browser**.
+`cloudflare/wrangler.json` enthält die Konto- und Ressourcen-Zuordnung;
+Zugangsdaten gehören nicht in diese Datei.
 
 ## Lokale Änderungen automatisch veröffentlichen
 
@@ -27,19 +27,23 @@ Manuell denselben Ablauf starten:
 npm run site:deploy
 ```
 
-Der Ablauf prüft das Worker-Verhalten, baut `dist/` neu, veröffentlicht ein
-geändertes Windows-Paket als GitHub Release und lädt anschließend die Website
-zu Cloudflare hoch. Die zum
-aktuellen `<Version>`-Eintrag in `SecureWindowApp.csproj` gehörende portable
-ZIP-Datei muss im Projektordner liegen. Änderungen an der App benötigen
-zuerst einen neuen portablen App-Build; reine Website-Änderungen verwenden
-das vorhandene Paket weiter.
+Der Ablauf prüft das Worker-Verhalten, liest Größe und Prüfsumme des bereits
+unter Windows geprüften GitHub Releases und baut die Cloudflare-Website unter
+`dist/cloudflare/client`. Anschließend wird ausschließlich die kleine Website
+hochgeladen. Reine Website-Änderungen benötigen weder einen Windows-Neubau
+noch einen ZIP-Upload. Die separate lokale Vorschau unter `dist/client` und
+die dort enthaltene vollständige ZIP bleiben erhalten.
+
+Änderungen an der App werden zuerst zu GitHub gepusht. Der Windows-Workflow
+baut die App, führt die nativen Tests aus und veröffentlicht das portable ZIP
+im Job `publish-download`. Danach kann die Website auf die neue Version zeigen.
 
 ## Automatische Veröffentlichung bei GitHub-Pushes
 
 Der vorhandene Workflow `.github/workflows/build.yml` baut und prüft die
-Windows-App bei Pushes auf `main`. Danach veröffentlicht der Job
-`deploy-website` Website und geprüftes Download-Paket.
+Windows-App bei Pushes auf `main` und `codex/veyra-workers-site`.
+Danach veröffentlicht `publish-download` das geprüfte Windows-Paket.
+Der zusätzliche Job `deploy-website` kann auch die Website zu Cloudflare laden.
 
 Für diesen Job benötigt das GitHub-Repository einmalig das Actions-Secret
 `CLOUDFLARE_API_TOKEN` sowie die Repository-Variable
@@ -61,14 +65,15 @@ liegt deshalb als öffentliches GitHub-Release-Asset im vorhandenen Repository
 leitet den Download auf das zum Versionsnamen passende GitHub Release weiter.
 Cloudflare R2 oder ein zusätzlicher kostenpflichtiger Speicher sind nicht nötig.
 
-Bei reinen Website-Änderungen wird das bereits vorhandene Download-Paket anhand
-seiner Prüfsumme wiederverwendet. Geänderte ZIPs werden zunächst unter einem
-temporären Namen vollständig hochgeladen und erst danach ersetzt. Neue Releases
-werden erst nach dem Upload veröffentlicht. Vor dem Worker-Deploy wird geprüft,
-dass das öffentliche vollständige Paket erreichbar ist.
+Bei Website-Änderungen wird das bereits veröffentlichte Windows-Paket verwendet.
+Neue ZIPs werden beim GitHub-Runner zunächst unter einem temporären Namen
+vollständig hochgeladen und erst danach ersetzt. Neue Releases werden erst nach
+dem Upload veröffentlicht. Vor dem Worker-Deploy wird geprüft, dass das öffentliche
+vollständige Paket erreichbar ist. Ein sehr langsamer lokaler Upload ist nicht nötig.
 
-Die lokale GitHub-Anmeldung wird über Gits Credential Helper verwendet.
-GitHub Actions verwendet den eigenen `GITHUB_TOKEN` mit `contents: write`.
+Für die lokale Website-Veröffentlichung reicht die Cloudflare-Anmeldung;
+die Release-Metadaten sind öffentlich lesbar. GitHub Actions verwendet für
+Windows-Releases den eigenen `GITHUB_TOKEN` mit `contents: write`.
 `website/.assetsignore` verhindert den Upload der ZIP als Worker-Asset.
 
 ## Download-Statistik

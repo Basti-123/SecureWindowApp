@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Veyra für Windows herunterladen – der private Browser für ruhiges und konzentriertes Arbeiten.">
+    <meta name="theme-color" content="#24103d">
+    <title>Veyra – Privates Surfen. Ruhiges Arbeiten.</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="site-feedback" class="site-feedback" role="status" aria-live="polite"></div>
+
+    <div class="cookie-overlay" id="cookie-consent" role="dialog" aria-modal="true" aria-labelledby="cookie-title" hidden>
+        <div class="cookie-card">
+            <p class="eyebrow">Deine Privatsphäre</p>
+            <h2 id="cookie-title">Cookies bei Veyra</h2>
+            <p>Veyra verwendet aktuell nur technisch notwendige Speicherung, damit deine Auswahl erhalten bleibt. Optionale Analyse-Cookies sind nicht aktiviert.</p>
+            <div class="cookie-actions">
+                <button class="button button-secondary" type="button" data-cookie-choice="necessary">Nur notwendige</button>
+                <button class="button button-primary" type="button" data-cookie-choice="all">Alle akzeptieren</button>
+            </div>
+            <button class="cookie-settings-toggle" type="button" aria-expanded="false" aria-controls="cookie-settings">Einstellungen anzeigen</button>
+            <div class="cookie-settings" id="cookie-settings" hidden>
+                <label><input type="checkbox" checked disabled> Technisch notwendige Speicherung <span>Immer aktiv</span></label>
+                <label><input type="checkbox" disabled> Analyse-Cookies <span>Derzeit nicht eingesetzt</span></label>
+                <button class="button button-secondary" type="button" data-cookie-choice="necessary">Auswahl speichern</button>
+            </div>
+            <a class="cookie-privacy-link" href="datenschutz.html">Datenschutzhinweise öffnen</a>
+        </div>
+    </div>
+
+    <header class="site-header">
+        <div class="site-header-inner">
+            <a class="brand" href="#top" aria-label="Veyra Startseite">
+                <img src="assets/VeyraIcon.png" alt="">
+                <span>Veyra</span>
+            </a>
+            <nav class="main-nav" id="main-nav" aria-label="Hauptnavigation">
+                <details class="nav-menu">
+                    <summary>Browser</summary>
+                    <div class="nav-panel"><a href="#download">Windows</a><a href="#features">Privatsphäre</a></div>
+                </details>
+                <details class="nav-menu">
+                    <summary>Funktionen</summary>
+                    <div class="nav-panel"><a href="#features">Schutz</a><a href="#features">Leistung</a><a href="#features">Organisation</a></div>
+                </details>
+                <details class="nav-menu">
+                    <summary>Ressourcen</summary>
+                    <div class="nav-panel"><a href="#faq">FAQ</a><a href="#newsletter">Neuigkeiten</a></div>
+                </details>
+                <div class="header-actions-mobile"><a class="button button-light download-button" href="downloads/Veyra-1.4.1-win-x64-portable.zip" download data-download-button data-version="1.4.1" data-platform="Windows" data-default-label="Veyra herunterladen"><span class="button-label" aria-live="polite">Veyra herunterladen</span></a></div>
+            </nav>
+            <div class="header-actions">
+                <a class="header-link" href="#faq">Hilfe</a>
+                <a class="button button-light download-button" href="downloads/Veyra-1.4.1-win-x64-portable.zip" download data-download-button data-version="1.4.1" data-platform="Windows" data-default-label="Veyra herunterladen"><span class="button-label" aria-live="polite">Veyra herunterladen</span></a>
+            </div>
+            <button class="menu-toggle" type="button" aria-label="Menü öffnen" aria-expanded="false" aria-controls="main-nav"></button>
+        </div>
+    </header>
+
+    <main id="top">
+        <section class="download-hero" id="download">
+            <div class="hero-content">
+                <p class="eyebrow">Privat. Ruhig. Veyra.</p>
+                <h1>Veyra herunterladen</h1>
+                <details class="platform-select" data-platform-select>
+                    <summary><span id="platform-label">Windows</span></summary>
+                    <div class="platform-options" role="listbox" aria-label="Betriebssystem auswählen">
+                        <button class="platform-choice" type="button" role="option" data-platform="Windows" data-available="true" aria-selected="true">Windows</button>
+                        <button class="platform-choice" type="button" role="option" data-platform="macOS" aria-selected="false">macOS</button>
+                        <button class="platform-choice" type="button" role="option" data-platform="Linux" aria-selected="false">Linux</button>
+                    </div>
+                </details>
+                <p class="hero-lead">Die meisten Browser handeln mit deiner Aufmerksamkeit. Veyra gibt dir Kontrolle, Ruhe und Privatsphäre zurück.</p>
+                <div class="hero-actions">
+                    <a class="button button-primary download-button" href="downloads/Veyra-1.4.1-win-x64-portable.zip" download data-download-button data-version="1.4.1" data-platform="Windows" data-default-label="Jetzt herunterladen">
+                        <span class="button-label" aria-live="polite">Jetzt herunterladen</span>
+                    </a>
+                </div>
+                <div class="download-trust" aria-label="Technische Download-Informationen">
+                    <span>Windows 10/11</span>
+                    <span>x64</span>
+                    <span>Version 1.4.1</span>
+                    <span data-download-size>Runtime enthalten</span>
+                </div>
+                <p class="download-feedback" id="download-feedback" role="status" aria-live="polite"></p>
+                <a class="privacy-link" href="datenschutz.html">Veyra-Datenschutzhinweis</a>
+                <p class="hero-meta">Windows 10 und 11 · 64-Bit · ZIP entpacken und Veyra.exe öffnen</p>
+            </div>
+
+            <div class="hero-product-image" aria-label="Veyra-Browser auf Windows">
+                <div class="browser-window">
+                    <div class="browser-toolbar">
+                        <div class="traffic-lights"><i></i><i></i><i></i></div>
+                        <div class="address-bar"></div>
+                    </div>
+                    <div class="browser-body">
+                        <aside class="browser-sidebar" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></aside>
+                        <div class="browser-main">
+                            <p class="browser-kicker">Private by default</p>
+                            <h2>Dein Fenster für den Moment.</h2>
+                            <p>Keine Ablenkung. Keine unnötigen Spuren. Nur ein schneller, ruhiger Browser für deinen Alltag.</p>
+                            <div class="browser-chip-row"><span class="browser-chip">Aufnahmeschutz aktiv</span><span class="browser-chip">Lokale Daten</span></div>
+                        </div>
+                    </div>
+                </div>
+                <p class="preview-caption"><strong>Veyra für Windows</strong> · Die echte App-Ansicht wird ergänzt, sobald deine finalen Screenshots bereitstehen.</p>
+            </div>
+        </section>
+
+        <section class="section features-section" id="features">
+            <div class="section-inner">
+                <div class="section-heading">
+                    <p class="eyebrow">Veyra für Windows</p>
+                    <h2>Ein Browser, der dir den Raum lässt.</h2>
+                    <p>Die vertraute Download-Struktur – mit Veyra-Funktionen für Schutz, Privatsphäre, Leistung und Ordnung.</p>
+                </div>
+                <div class="feature-grid">
+                    <article class="feature-card">
+                        <div class="feature-media media-protection"><div class="shield" aria-hidden="true"></div></div>
+                        <div class="feature-copy"><p class="eyebrow">Schutz</p><h3>Weniger Angriffsfläche. Mehr Ruhe.</h3><p>Popups, Downloads, DevTools und sensible Berechtigungsanfragen werden standardmäßig blockiert.</p></div>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-media media-privacy"><div class="privacy-orbit" aria-hidden="true"><span class="privacy-spark"></span><span class="privacy-spark"></span></div></div>
+                        <div class="feature-copy"><p class="eyebrow">Privatsphäre</p><h3>Deine Daten bleiben, wo sie hingehören – bei dir.</h3><p>Tabs und Favoriten werden lokal verwaltet. Deine Browser-Sitzung verlässt deinen Rechner nicht.</p></div>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-media media-speed"><div class="speed-lines" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div></div>
+                        <div class="feature-copy"><p class="eyebrow">Leistung</p><h3>Schnell, wenn es darauf ankommt.</h3><p>Inaktive Tabs werden geschont und Sitzungen zuverlässig gespeichert, damit Veyra reaktionsfähig bleibt.</p></div>
+                    </article>
+                    <article class="feature-card">
+                        <div class="feature-media media-tabs"><div class="tab-stack" aria-hidden="true"><span></span><span></span><span></span></div></div>
+                        <div class="feature-copy"><p class="eyebrow">Organisation</p><h3>Schaffe Ordnung. Halte Ordnung.</h3><p>Tabs lassen sich sortieren, duplizieren, schließen und nach einem Neustart wiederherstellen.</p></div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section newsletter-section" id="newsletter">
+            <div class="section-inner newsletter-grid">
+                <div class="newsletter-visual"><img src="assets/VeyraIcon.png" alt="Veyra"></div>
+                <div class="newsletter-copy">
+                    <p class="eyebrow">Bleib informiert</p>
+                    <h2>Neuigkeiten, ohne Lärm.</h2>
+                    <p>Hol dir Hinweise, Updates und neue Veyra-Funktionen direkt in deinen Posteingang.</p>
+                    <form id="newsletter-form" class="newsletter-form">
+                        <input id="newsletter-email" type="email" placeholder="Deine E-Mail-Adresse" autocomplete="email" required>
+                        <button class="button button-primary" type="submit">Registrieren</button>
+                        <label class="consent"><input id="newsletter-consent" type="checkbox" required><span>Ich möchte Informationen zu Veyra erhalten. Abmeldung jederzeit möglich.</span></label>
+                    </form>
+                    <p class="form-feedback" id="newsletter-feedback" role="status"></p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section faq-section" id="faq">
+            <div class="section-inner">
+                <div class="section-heading"><p class="eyebrow">Fragen</p><h2>Gut zu wissen.</h2></div>
+                <div class="faq-list">
+                    <details open><summary>Ist Veyra kostenlos?</summary><p>Ja. Die aktuelle Windows-Version kann kostenlos heruntergeladen und genutzt werden.</p></details>
+                    <details><summary>Welche Daten speichert Veyra?</summary><p>Veyra speichert Tabs und Favoriten lokal auf deinem Rechner. Eine Cloud-Synchronisierung ist nicht aktiviert.</p></details>
+                    <details><summary>Welche Windows-Version wird unterstützt?</summary><p>Veyra ist für Windows 10 und Windows 11 auf x64-Systemen ausgelegt.</p></details>
+                    <details><summary>Muss ich Veyra installieren?</summary><p>Nein. Lade das portable ZIP herunter, entpacke es vollständig und öffne Veyra.exe. Die benötigten Laufzeiten sind enthalten.</p></details>
+                    <details><summary>Kann ich Veyra später wieder entfernen?</summary><p>Beende Veyra und lösche den entpackten Ordner. Persönliche Browserdaten liegen unter %LOCALAPPDATA%\SecureWindowApp und können dort separat gelöscht werden.</p></details>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer" id="privacy">
+        <div class="section section-inner">
+            <div class="footer-grid">
+                <div class="footer-brand"><a class="brand" href="#top"><img src="assets/VeyraIcon.png" alt=""><span>Veyra</span></a><p>Ein privater Browser für konzentriertes Arbeiten.</p></div>
+                <div class="footer-column"><h2 class="footer-heading">Download</h2><a href="#download">Veyra herunterladen</a><a href="#download">Windows</a><a href="#download" data-coming-soon="macOS">macOS</a><a href="#download" data-coming-soon="Benutzerdefinierte Downloads">Benutzerdefinierte Downloads</a></div>
+                <div class="footer-column"><h2 class="footer-heading">Aktuelle Versionen</h2><a href="#download">Stable · 1.4.1</a><a href="#download" data-coming-soon="Beta">Beta</a><h2 class="footer-heading">Unternehmen</h2><a href="#newsletter">Kontakt aufnehmen</a></div>
+                <div class="footer-column"><h2 class="footer-heading">Community</h2><a href="#newsletter">Feedback geben</a><a href="#faq">Hilfe</a><a href="#features">Funktionen</a></div>
+                <div class="footer-column"><h2 class="footer-heading">Ressourcen</h2><a href="#faq">FAQ</a><a href="datenschutz.html">Datenschutz</a><a href="versions.html">Versionshinweise</a><a href="#newsletter" data-coming-soon="Der Veyra-Blog">Blog</a></div>
+                <div class="footer-column"><h2 class="footer-heading">Folgen</h2><a href="#top" data-coming-soon="Instagram">Instagram</a><a href="#top" data-coming-soon="YouTube">YouTube</a><a href="#top" data-coming-soon="Bluesky">Bluesky</a><a href="#top" data-coming-soon="Der Veyra-Podcast">Podcast</a></div>
+            </div>
+            <div class="footer-bottom"><p>© 2026 Veyra</p><div class="footer-bottom-links"><a href="datenschutz.html">Datenschutz</a><a href="datenschutz.html#nutzungsbedingungen">Nutzungsbedingungen</a><a href="datenschutz.html#cookies">Cookies</a><span>Deutsch</span></div></div>
+        </div>
+    </footer>
+
+    <div class="mobile-download-bar" aria-label="Veyra herunterladen">
+        <span><strong>Veyra</strong><small>Windows · 1.4.1</small></span>
+        <a class="button button-primary download-button" href="downloads/Veyra-1.4.1-win-x64-portable.zip" download data-download-button data-version="1.4.1" data-platform="Windows" data-default-label="Download"><span class="button-label">Download</span></a>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

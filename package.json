@@ -1,0 +1,13 @@
+{
+  "name": "veyra-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "site:build": "node scripts/build-veyra-site.mjs",
+    "site:test": "node --test tests/cloudflare-worker.test.mjs",
+    "site:deploy": "node scripts/deploy-cloudflare-site.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.149.0"
+  }
+}

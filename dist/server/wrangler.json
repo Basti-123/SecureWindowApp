@@ -1,0 +1,15 @@
+{
+  "main": "./index.js",
+  "compatibility_date": "2026-05-15",
+  "assets": {
+    "directory": "../client",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "veyra-analytics",
+      "database_id": "00000000-0000-4000-8000-000000000000"
+    }
+  ]
+}

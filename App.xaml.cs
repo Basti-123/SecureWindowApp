@@ -1,7 +1,10 @@
 using System;
+using System.IO;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
+using System.Windows.Threading;
 
 namespace SecureWindowApp
 {
@@ -24,6 +27,10 @@ namespace SecureWindowApp
                 Shutdown(0);
                 return;
             }
+
+            DispatcherUnhandledException += OnDispatcherUnhandledException;
+            TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+            AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
             // Wendet den Aufnahmeschutz automatisch auf JEDES Fenster der
             // Anwendung an, sobald es geladen wird - auch auf Fenster, die
@@ -50,7 +57,8 @@ namespace SecureWindowApp
 
             if (IsSmokeTest)
             {
-                window.BrowserInitializationCompleted += success => Shutdown(success ? 0 : 1);
+                window.BrowserInitializationCompleted += async success =>
+                    Shutdown(success && await window.VerifyShellAsync() ? 0 : 1);
             }
 
             window.Show();
@@ -58,6 +66,10 @@ namespace SecureWindowApp
 
         protected override void OnExit(ExitEventArgs e)
         {
+            DispatcherUnhandledException -= OnDispatcherUnhandledException;
+            TaskScheduler.UnobservedTaskException -= OnUnobservedTaskException;
+            AppDomain.CurrentDomain.UnhandledException -= OnUnhandledException;
+
             if (_singleInstanceMutex != null)
             {
                 try
@@ -74,6 +86,49 @@ namespace SecureWindowApp
             }
 
             base.OnExit(e);
+        }
+
+        private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+        {
+            LogUnhandledException("Dispatcher", e.Exception);
+
+            // Die Ausnahme ist bereits protokolliert. Das verhindert, dass ein
+            // einzelner fehlerhafter UI-Callback die gesamte App beendet.
+            e.Handled = true;
+            if (IsSmokeTest)
+                Shutdown(1);
+        }
+
+        private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+        {
+            LogUnhandledException("Task", e.Exception);
+            e.SetObserved();
+        }
+
+        private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+        {
+            if (e.ExceptionObject is Exception exception)
+                LogUnhandledException("AppDomain", exception);
+            else
+                LogUnhandledException("AppDomain", new Exception(e.ExceptionObject?.ToString()));
+        }
+
+        private static void LogUnhandledException(string source, Exception exception)
+        {
+            try
+            {
+                string directory = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "SecureWindowApp");
+                Directory.CreateDirectory(directory);
+                File.AppendAllText(
+                    Path.Combine(directory, "application-failures.log"),
+                    $"[{DateTime.Now:O}] Quelle: {source}{Environment.NewLine}{exception}{Environment.NewLine}");
+            }
+            catch
+            {
+                // Fehlerdiagnostik darf einen bereits fehlerhaften Prozess nicht weiter stoeren.
+            }
         }
 
         private void OnAnyWindowLoaded(object sender, RoutedEventArgs e)

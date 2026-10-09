@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using WinForms = System.Windows.Forms;
 
 namespace SecureWindowApp
@@ -31,8 +33,8 @@ namespace SecureWindowApp
 
             _icon = new WinForms.NotifyIcon
             {
-                Icon = SystemIcons.Shield,
-                Text = "Sicheres Fenster",
+                Icon = LoadApplicationIcon(),
+                Text = "Veyra",
                 ContextMenuStrip = _menu,
                 Visible = true
             };
@@ -44,6 +46,26 @@ namespace SecureWindowApp
                     toggleWindow();
             };
 
+        }
+
+        private static Icon LoadApplicationIcon()
+        {
+            try
+            {
+                string? executablePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (!string.IsNullOrWhiteSpace(executablePath) && File.Exists(executablePath))
+                {
+                    Icon? applicationIcon = Icon.ExtractAssociatedIcon(executablePath);
+                    if (applicationIcon != null)
+                        return applicationIcon;
+                }
+            }
+            catch
+            {
+                // Das Tray-Symbol darf den Start der App nicht verhindern.
+            }
+
+            return SystemIcons.Application;
         }
 
         public void Dispose()

@@ -1,4 +1,4 @@
-name: Build SecureWindowApp
+name: Build Veyra
 
 # Laeuft automatisch bei jedem Push auf "main" und laesst sich
 # zusaetzlich manuell ueber den "Actions"-Tab auf GitHub starten.
@@ -9,7 +9,7 @@ on:
 
 jobs:
   build:
-    # WPF kann nur auf Windows gebaut werden - deshalb windows-latest.
+    # Native WebView2- und Aufnahmeschutz-Tests brauchen Windows.
     runs-on: windows-latest
 
     steps:
@@ -24,6 +24,9 @@ jobs:
       - name: Self-contained Single-File EXE erstellen (win-x64)
         run: dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true -o publish
 
+      - name: Sitzungs- und Prozessfehler-Regressionstests
+        run: dotnet run --project tests/windows-logic/WindowsLogic.Tests.csproj -c Release
+
       - name: EXE optional mit Windows-Zertifikat signieren
         if: ${{ vars.ENABLE_CODE_SIGNING == 'true' }}
         shell: pwsh
@@ -34,7 +37,7 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_BASE64) -or [string]::IsNullOrWhiteSpace($env:WINDOWS_SIGNING_CERT_PASSWORD)) {
             throw "Code-Signing ist aktiviert, aber Zertifikat oder Passwort fehlen."
           }
-          $certificatePath = Join-Path $env:RUNNER_TEMP "SecureWindowApp-signing.pfx"
+          $certificatePath = Join-Path $env:RUNNER_TEMP "Veyra-signing.pfx"
           [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_SIGNING_CERT_BASE64))
           $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
             Sort-Object FullName -Descending |
@@ -42,21 +45,15 @@ jobs:
           if ($null -eq $signtool) {
             throw "signtool.exe wurde im Windows SDK nicht gefunden."
           }
-          & $signtool.FullName sign /fd SHA256 /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "${{ github.workspace }}\publish\SecureWindowApp.exe"
+          & $signtool.FullName sign /fd SHA256 /f $certificatePath /p $env:WINDOWS_SIGNING_CERT_PASSWORD /tr http://timestamp.digicert.com /td SHA256 "${{ github.workspace }}\publish\Veyra.exe"
           if ($LASTEXITCODE -ne 0) {
             throw "Das Signieren der EXE ist fehlgeschlagen."
           }
           Remove-Item -LiteralPath $certificatePath -Force
 
-      - name: WebView2-Starter und Runtime-Bootstrapper zum Paket hinzufügen
+      - name: Portables ZIP mit enthaltener WebView2-Laufzeit erstellen
         shell: pwsh
-        run: |
-          Copy-Item "${{ github.workspace }}\Start-SecureWindowApp.bat" "${{ github.workspace }}\publish\Start-SecureWindowApp.bat" -Force
-          Copy-Item "${{ github.workspace }}\Install-SecureWindowApp.bat" "${{ github.workspace }}\publish\Install-SecureWindowApp.bat" -Force
-          Copy-Item "${{ github.workspace }}\Uninstall-SecureWindowApp.bat" "${{ github.workspace }}\publish\Uninstall-SecureWindowApp.bat" -Force
-          Copy-Item "${{ github.workspace }}\MicrosoftEdgeWebView2Setup.exe" "${{ github.workspace }}\publish\MicrosoftEdgeWebView2Setup.exe" -Force
-          Copy-Item "${{ github.workspace }}\SETUP.txt" "${{ github.workspace }}\publish\SETUP.txt" -Force
-          Compress-Archive -Path "${{ github.workspace }}\publish\*" -DestinationPath "${{ github.workspace }}\SecureWindowApp-win-x64.zip" -Force
+        run: ./scripts/build-portable.ps1 -SkipPublish
 
       - name: Windows Smoke-Test (Schutz und WebView2-Initialisierung)
         shell: pwsh
@@ -64,9 +61,9 @@ jobs:
           $results = Join-Path $env:GITHUB_WORKSPACE "test-results"
           New-Item -ItemType Directory -Path $results -Force | Out-Null
           $smokeLog = Join-Path $results "smoke-test.log"
-          "SecureWindowApp Windows Smoke-Test" | Set-Content -Path $smokeLog
+          "Veyra Windows Smoke-Test" | Set-Content -Path $smokeLog
           "Start: $(Get-Date -Format o)" | Add-Content -Path $smokeLog
-          $process = Start-Process -FilePath "${{ github.workspace }}\publish\SecureWindowApp.exe" -ArgumentList "--smoke-test" -PassThru
+          $process = Start-Process -FilePath "${{ github.workspace }}\publish\Veyra.exe" -ArgumentList "--smoke-test" -PassThru
           "PID: $($process.Id)" | Add-Content -Path $smokeLog
           if (-not $process.WaitForExit(30000)) {
             Stop-Process -Id $process.Id -Force
@@ -86,12 +83,12 @@ jobs:
           $results = Join-Path $env:GITHUB_WORKSPACE "test-results"
           New-Item -ItemType Directory -Path $results -Force | Out-Null
           $diagnosticLog = Join-Path $results "ui-diagnostic.log"
-          "SecureWindowApp Windows UI-Diagnose" | Set-Content -Path $diagnosticLog
+          "Veyra Windows UI-Diagnose" | Set-Content -Path $diagnosticLog
           "Start: $(Get-Date -Format o)" | Add-Content -Path $diagnosticLog
           $process = $null
 
           try {
-            $process = Start-Process -FilePath "${{ github.workspace }}\publish\SecureWindowApp.exe" -PassThru
+            $process = Start-Process -FilePath "${{ github.workspace }}\publish\Veyra.exe" -PassThru
             "PID: $($process.Id)" | Add-Content -Path $diagnosticLog
             "Warte 12 Sekunden auf Fenster- und WebView2-Initialisierung." | Add-Content -Path $diagnosticLog
             Start-Sleep -Seconds 12
@@ -184,12 +181,56 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: SecureWindowApp-windows-test-results
+          name: Veyra-windows-test-results
           path: test-results
           if-no-files-found: warn
 
-      - name: Fertige EXE als Download bereitstellen
+      - name: Portables ZIP als Download bereitstellen
         uses: actions/upload-artifact@v4
         with:
-          name: SecureWindowApp-win-x64
-          path: SecureWindowApp-win-x64.zip
+          name: Veyra-win-x64-portable
+          path: |
+            Veyra-*-win-x64-portable.zip
+            Veyra-*-win-x64-portable.zip.sha256
+
+  deploy-website:
+    name: Website auf workers.dev veröffentlichen
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: veyra-website-production
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Cloudflare-Zugang prüfen
+        shell: bash
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Das Repository-Secret CLOUDFLARE_API_TOKEN fehlt. Siehe cloudflare/README.md."
+            exit 1
+          fi
+
+      - name: Veröffentlichungstools installieren
+        run: npm ci --no-audit --no-fund
+
+      - name: Geprüftes Windows-Paket laden
+        uses: actions/download-artifact@v4
+        with:
+          name: Veyra-win-x64-portable
+          path: .
+
+      - name: Website und Download veröffentlichen
+        run: npm run site:deploy

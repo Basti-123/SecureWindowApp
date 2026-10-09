@@ -9,13 +9,13 @@
     <UseWPF>true</UseWPF>
     <!-- WinForms wird nur fuer das Tray-Symbol (NotifyIcon) benoetigt -->
     <UseWindowsForms>true</UseWindowsForms>
-    <AssemblyName>SecureWindowApp</AssemblyName>
+    <AssemblyName>Veyra</AssemblyName>
     <RootNamespace>SecureWindowApp</RootNamespace>
-    <ApplicationIcon>app.ico</ApplicationIcon>
-    <Version>1.4.0</Version>
-    <AssemblyVersion>1.4.0.0</AssemblyVersion>
-    <FileVersion>1.4.0.0</FileVersion>
-    <InformationalVersion>1.4.0</InformationalVersion>
+    <ApplicationIcon>Assets\VeyraIcon.ico</ApplicationIcon>
+    <Version>1.4.1</Version>
+    <AssemblyVersion>1.4.1.0</AssemblyVersion>
+    <FileVersion>1.4.1.0</FileVersion>
+    <InformationalVersion>1.4.1</InformationalVersion>
 
     <!-- Self-Contained Single-File Konfiguration -->
     <SelfContained>true</SelfContained>
@@ -29,6 +29,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="tests/**/*.cs" />
+    <EmbeddedResource Include="tests/shell-smoke.js" LogicalName="VeyraShellTests" />
+    <EmbeddedResource Include="ui/**/*" LogicalName="VeyraShell/%(RecursiveDir)%(Filename)%(Extension)" />
+    <None Remove="Assets\VeyraIcon.png" />
+    <Resource Include="Assets\VeyraIcon.png" />
+
     <!-- Eingebetteter Browser (Edge/Chromium) -->
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3967.48" />
   </ItemGroup>

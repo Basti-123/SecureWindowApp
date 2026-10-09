@@ -2,6 +2,8 @@ bin/
 obj/
 publish/
 publish-*/
+Veyra-*-portable.zip
+Veyra-*-portable.zip.sha256
 *.user
 *.suo
 *.userosscache
@@ -10,3 +12,11 @@ publish-*/
 # Local WebView2 profile and user data
 WebView2/
 *.log
+macos/build/
+
+# Cloudflare tooling and local credentials
+node_modules/
+.wrangler/
+.dev.vars*
+.env*
+cloudflare/.state/

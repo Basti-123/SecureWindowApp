@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en" data-theme="system">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Veyra</title><link rel="stylesheet" href="shell.css"><script src="shell.js" defer></script>
+</head>
+<body>
+<header class="chrome">
+  <div class="titlebar" id="titlebar">
+    <div class="brand" aria-label="Veyra"><span class="brand-mark">v</span><span>Veyra</span></div>
+    <div id="tabs" class="tabs" role="tablist" aria-label="Browser tabs"></div>
+    <button class="icon-button" data-action="newTab" aria-label="New tab" title="New tab (Ctrl/Cmd+T)" data-icon="plus"></button>
+    <div class="drag-space" aria-hidden="true"></div>
+    <div class="window-controls">
+      <button class="icon-button" data-action="minimize" aria-label="Minimize window" data-icon="minus"></button>
+      <button class="icon-button" data-action="maximize" aria-label="Maximize or restore window" data-icon="maximize"></button>
+      <button class="icon-button window-close" data-action="closeWindow" aria-label="Close window" data-icon="close"></button>
+    </div>
+  </div>
+  <nav class="toolbar" aria-label="Browser navigation">
+    <button id="back" class="icon-button" data-action="back" aria-label="Back" data-icon="back" disabled></button>
+    <button id="forward" class="icon-button" data-action="forward" aria-label="Forward" data-icon="forward" disabled></button>
+    <button id="reload" class="icon-button" data-action="reload" aria-label="Reload page" data-icon="reload"></button>
+    <button class="icon-button" data-action="home" aria-label="Home" data-icon="home"></button>
+    <form id="address-form" class="omnibox" role="search">
+      <span id="security" class="security" data-icon="search" title="Search or enter an address"></span>
+      <input id="address" aria-label="Address or Google search" placeholder="Search Google or enter a URL" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="suggestions">
+      <button id="bookmark" type="button" class="icon-button" data-action="bookmark" aria-label="Bookmark current page" data-icon="star"></button>
+    </form>
+    <button id="mute" class="icon-button" data-action="mute" aria-label="Mute tab audio" data-icon="volume" disabled></button>
+    <button id="overflow-button" class="icon-button" aria-label="Bookmarks and tab actions" aria-haspopup="dialog" data-icon="grid"></button>
+    <button id="settings-button" class="profile-button" aria-label="Settings" aria-haspopup="dialog"><span>V</span></button>
+  </nav>
+</header>
+<img id="page-preview" alt="" aria-hidden="true" hidden>
+<main id="content" role="tabpanel" aria-label="New tab">
+  <section id="start" class="start-page">
+    <span class="eyebrow">A little space to explore</span>
+    <div class="google-logo" role="img" aria-label="Google"><span>G</span><span>o</span><span>o</span><span>g</span><span>l</span><span>e</span></div>
+    <form id="search-form" class="google-search" role="search">
+      <span data-icon="search"></span><input id="search" placeholder="Search Google" aria-label="Search Google" autocomplete="off" spellcheck="false">
+      <button class="icon-button" aria-label="Submit Google search" data-icon="forward"></button>
+    </form>
+    <div class="shortcuts-heading"><span>Your shortcuts</span><button id="customize" class="text-button">Customize <span data-icon="edit"></span></button></div>
+    <div id="shortcuts" class="shortcuts" aria-label="Website shortcuts"></div>
+    <p class="start-note">Your next idea starts here.</p>
+  </section>
+  <section id="error" class="error-page" hidden><span data-icon="shield"></span><h1>Browser unavailable</h1><p id="error-message"></p><button class="text-button" data-action="newTab">Open a new tab</button></section>
+</main>
+<div id="suggestions" class="suggestions" role="listbox" aria-label="Address suggestions" hidden></div>
+<div id="panel-backdrop" class="panel-backdrop" hidden>
+  <section id="panel" class="panel" role="dialog" aria-modal="true" aria-labelledby="panel-title" tabindex="-1">
+    <div class="panel-heading"><h1 id="panel-title">Settings</h1><button id="panel-close" class="icon-button" aria-label="Close panel" data-icon="close"></button></div>
+    <div id="panel-body"></div>
+  </section>
+</div>
+<p id="status" role="status" aria-live="polite" class="status" hidden></p>
+</body></html>

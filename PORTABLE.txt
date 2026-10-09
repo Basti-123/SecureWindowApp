@@ -1,0 +1,31 @@
+Veyra 1.4.1 - Windows x64, portable
+=================================
+
+1. Das gesamte ZIP in einen lokalen Ordner entpacken.
+2. Veyra.exe per Doppelklick oeffnen.
+
+Es gibt keinen Installer, keine Startmenue-Registrierung und keine
+separate .NET- oder WebView2-Installation. Die Laufzeiten sind enthalten.
+Der Ordner WebView2Runtime muss neben Veyra.exe bleiben. Bitte nicht
+direkt aus der ZIP-Vorschau oder von einem Netzlaufwerk starten.
+
+Unterstuetzt: Windows 10 und Windows 11, x64.
+Auf Windows 10 setzt die App die von Microsoft benoetigten Leserechte
+fuer ihre enthaltene WebView2-Laufzeit im entpackten Ordner.
+
+Favoriten, Sitzungen und Browserdaten liegen lokal unter:
+    %LOCALAPPDATA%\SecureWindowApp
+Die persoenlichen Browserdaten bleiben im Windows-Benutzerprofil.
+
+Zum Entfernen: Veyra beenden und den entpackten Ordner loeschen.
+Optional danach auch %LOCALAPPDATA%\SecureWindowApp loeschen, um alle
+persoenlichen Daten zu entfernen.
+
+Aufnahmeschutz ist beim Start aktiv. In den Einstellungen kannst du
+ihn aendern und Cookies, Cache oder den lokalen Vorschlagsverlauf loeschen.
+Nach dem Loeschen der gespeicherten Sitzung werden bis zum naechsten
+App-Start keine Tabs mehr fuer die Wiederherstellung gespeichert.
+
+Die enthaltene WebView2-Laufzeit ist die Microsoft Fixed Version
+155.0.4283.45. Neue Runtime-Versionen werden mit neuen Veyra-Paketen
+bereitgestellt; zum Aktualisieren ein neues Paket herunterladen.

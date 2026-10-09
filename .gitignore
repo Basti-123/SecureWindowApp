@@ -20,3 +20,4 @@ node_modules/
 .dev.vars*
 .env*
 cloudflare/.state/
+dist/cloudflare/

@@ -42,7 +42,11 @@ Windows-App bei Pushes auf `main`. Danach veröffentlicht der Job
 `deploy-website` Website und geprüftes Download-Paket.
 
 Für diesen Job benötigt das GitHub-Repository einmalig das Actions-Secret
-`CLOUDFLARE_API_TOKEN`. Verwende einen auf das Konto **Veyra Browser**
+`CLOUDFLARE_API_TOKEN` sowie die Repository-Variable
+`CLOUDFLARE_AUTO_DEPLOY=true`. Solange diese zusätzliche GitHub-Automatik
+nicht aktiviert ist, bleibt der bestehende Windows-Build unabhängig davon
+funktionsfähig; Codex veröffentlicht lokale Website-Änderungen weiterhin direkt.
+Verwende einen auf das Konto **Veyra Browser**
 beschränkten Token mit **Workers Scripts: Edit** und **D1: Edit**.
 Account-Read/Workers-Subdomain-Read kann für
 Wranglers Kontoprüfung erforderlich sein. Tokens niemals als normalen

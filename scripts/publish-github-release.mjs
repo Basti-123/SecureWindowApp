@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
-import { createReadStream, readFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -31,6 +31,7 @@ async function api(path, options = {}, allow404 = false) {
 
 const tag = `v${releaseInput.version}`;
 let release = await api(`/releases/tags/${tag}`, {}, true);
+if (!release) release = (await api('/releases?per_page=100')).find(item => item.tag_name === tag);
 if (!release) {
   const repositoryInfo = await api('');
   if (repositoryInfo.private) throw new Error('Die Downloads benötigen ein öffentliches Release-Repository. Das private Repository wird nicht öffentlich geschaltet.');
@@ -65,14 +66,33 @@ async function uploadAsset(filename, contentType, checksum, size) {
   url.searchParams.set('name', stagingName);
   url.searchParams.set('label', checksum);
   console.log(`GitHub-Upload: ${filename} (${size} Bytes)`);
-  const uploaded = await fetch(url, {
-    method: 'POST',
-    headers: { ...headers, 'content-type': contentType, 'content-length': String(size) },
-    body: createReadStream(join(root, filename)),
-    duplex: 'half',
+  const curlConfiguration = [
+    `url = ${JSON.stringify(url.toString())}`,
+    'request = "POST"',
+    `upload-file = ${JSON.stringify(join(root, filename))}`,
+    `header = ${JSON.stringify(`Authorization: Bearer ${token}`)}`,
+    `header = ${JSON.stringify('Accept: application/vnd.github+json')}`,
+    `header = ${JSON.stringify(`Content-Type: ${contentType}`)}`,
+    `header = ${JSON.stringify('X-GitHub-Api-Version: 2022-11-28')}`,
+  ].join('\n') + '\n';
+  // Credentials go through stdin, never command arguments or files. Curl's
+  // transfer meter makes slow large uploads observable and bounds their runtime.
+  const uploaded = await new Promise((resolveUpload, rejectUpload) => {
+    const child = spawn('curl', ['--config', '-', '--http1.1', '--fail-with-body', '--show-error', '--connect-timeout', '30', '--max-time', '1800'], {
+      cwd: root,
+      stdio: ['pipe', 'pipe', 'inherit'],
+    });
+    let output = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', chunk => { output += chunk; });
+    child.on('error', rejectUpload);
+    child.on('close', code => {
+      if (code !== 0) return rejectUpload(new Error(`GitHub-Upload fehlgeschlagen (curl ${code}).`));
+      try { resolveUpload(JSON.parse(output)); } catch { rejectUpload(new Error('Invalid GitHub upload response.')); }
+    });
+    child.stdin.end(curlConfiguration);
   });
-  if (!uploaded.ok) throw new Error(`GitHub-Upload fehlgeschlagen: HTTP ${uploaded.status}`);
-  const asset = await uploaded.json();
+  const asset = uploaded;
   if (asset.size !== size || (asset.digest && asset.digest !== `sha256:${checksum}`)) throw new Error('Uploaded asset does not match the release input.');
   if (existing) await api(`/releases/assets/${existing.id}`, { method: 'DELETE' });
   await api(`/releases/assets/${asset.id}`, { method: 'PATCH', body: JSON.stringify({ name: filename, label: checksum }) });
@@ -86,5 +106,5 @@ const { createHash } = await import('node:crypto');
 const { writeFileSync } = await import('node:fs');
 writeFileSync(join(root, checksumFile), checksumContent);
 await uploadAsset(checksumFile, 'text/plain', createHash('sha256').update(checksumContent).digest('hex'), checksumContent.length);
-if (release.draft) release = await api(`/releases/${release.id}`, { method: 'PATCH', body: JSON.stringify({ draft: false }) });
+release = await api(`/releases/${release.id}`, { method: 'PATCH', body: JSON.stringify({ draft: false, body: `Portables Paket für Windows 10/11 (x64). ZIP vollständig entpacken und Veyra.exe öffnen. WebView2 ist enthalten.\n\nSHA-256: ${releaseInput.sha256}` }) });
 console.log(`Windows-Download veröffentlicht: ${release.html_url}`);

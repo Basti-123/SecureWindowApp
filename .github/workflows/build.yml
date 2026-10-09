@@ -4,7 +4,7 @@ name: Build Veyra
 # zusaetzlich manuell ueber den "Actions"-Tab auf GitHub starten.
 on:
   push:
-    branches: [ main ]
+    branches: [ main, codex/veyra-workers-site ]
   workflow_dispatch:
 
 jobs:
@@ -193,9 +193,38 @@ jobs:
             Veyra-*-win-x64-portable.zip
             Veyra-*-win-x64-portable.zip.sha256
 
+  publish-download:
+    name: Geprüftes Windows-Paket als GitHub Release veröffentlichen
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: veyra-windows-release
+      cancel-in-progress: false
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+      - name: Node.js einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Geprüftes Windows-Paket laden
+        uses: actions/download-artifact@v4
+        with:
+          name: Veyra-win-x64-portable
+          path: .
+      - name: Release-Metadaten erstellen
+        run: node scripts/build-veyra-site.mjs
+      - name: Portables Paket veröffentlichen
+        run: node scripts/publish-github-release.mjs
+
   deploy-website:
     name: Website auf workers.dev veröffentlichen
-    needs: build
+    if: ${{ vars.CLOUDFLARE_AUTO_DEPLOY == 'true' }}
+    needs: publish-download
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -225,12 +254,6 @@ jobs:
 
       - name: Veröffentlichungstools installieren
         run: npm ci --no-audit --no-fund
-
-      - name: Geprüftes Windows-Paket laden
-        uses: actions/download-artifact@v4
-        with:
-          name: Veyra-win-x64-portable
-          path: .
 
       - name: Website und Download veröffentlichen
         run: npm run site:deploy
